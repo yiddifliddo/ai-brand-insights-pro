@@ -167,6 +167,31 @@ function initDatabase() {
             FOREIGN KEY (brand_id) REFERENCES brands(id),
             UNIQUE(user_id, brand_id)
         );
+        
+        -- AI Crawler visits (from WordPress plugin)
+        CREATE TABLE IF NOT EXISTS crawler_visits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_domain TEXT NOT NULL,
+            bot_name TEXT NOT NULL,
+            company TEXT NOT NULL,
+            bot_type TEXT,
+            page_url TEXT,
+            page_title TEXT,
+            ip_address TEXT,
+            visited_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        -- AI Referral visits (humans from AI platforms)
+        CREATE TABLE IF NOT EXISTS referral_visits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_domain TEXT NOT NULL,
+            platform_name TEXT NOT NULL,
+            company TEXT NOT NULL,
+            page_url TEXT,
+            page_title TEXT,
+            referrer_url TEXT,
+            visited_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
     `);
     
     // Migration: Add competitor_mentions column if it doesn't exist
@@ -1890,6 +1915,146 @@ app.post('/api/admin/scheduled-runs/run-now', authenticateToken, requireAdmin, a
     setImmediate(async () => {
         await runScheduledAnalysis();
     });
+});
+
+// ============================================
+// WordPress Plugin Integration
+// ============================================
+
+// Generate/get site API key for WordPress plugin
+app.post('/api/sites/register', authenticateToken, (req, res) => {
+    const { domain } = req.body;
+    if (!domain) return res.status(400).json({ error: 'Domain required' });
+    
+    // Generate a simple API key
+    const apiKey = 'sk_' + require('crypto').randomBytes(24).toString('hex');
+    
+    // Store or update site
+    const existing = db.prepare('SELECT * FROM sites WHERE domain = ?').get(domain);
+    if (existing) {
+        db.prepare('UPDATE sites SET api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE domain = ?').run(apiKey, domain);
+    } else {
+        db.prepare('INSERT INTO sites (domain, api_key, user_id) VALUES (?, ?, ?)').run(domain, apiKey, req.user.id);
+    }
+    
+    res.json({ domain, apiKey, endpoint: `${req.protocol}://${req.get('host')}/api/webhook/crawler` });
+});
+
+// Create sites table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS sites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        domain TEXT UNIQUE NOT NULL,
+        api_key TEXT NOT NULL,
+        user_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
+// Webhook: Receive crawler visits from WordPress
+app.post('/api/webhook/crawler', (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) return res.status(401).json({ error: 'API key required' });
+    
+    const site = db.prepare('SELECT * FROM sites WHERE api_key = ?').get(apiKey);
+    if (!site) return res.status(401).json({ error: 'Invalid API key' });
+    
+    const { visits } = req.body;
+    if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
+    
+    const stmt = db.prepare(`
+        INSERT INTO crawler_visits (site_domain, bot_name, company, bot_type, page_url, page_title, ip_address, visited_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    let inserted = 0;
+    for (const v of visits) {
+        try {
+            stmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
+            inserted++;
+        } catch (e) {}
+    }
+    
+    res.json({ success: true, inserted });
+});
+
+// Webhook: Receive referral visits from WordPress
+app.post('/api/webhook/referral', (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) return res.status(401).json({ error: 'API key required' });
+    
+    const site = db.prepare('SELECT * FROM sites WHERE api_key = ?').get(apiKey);
+    if (!site) return res.status(401).json({ error: 'Invalid API key' });
+    
+    const { visits } = req.body;
+    if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
+    
+    const stmt = db.prepare(`
+        INSERT INTO referral_visits (site_domain, platform_name, company, page_url, page_title, referrer_url, visited_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    let inserted = 0;
+    for (const v of visits) {
+        try {
+            stmt.run(site.domain, v.platform_name, v.company, v.page_url, v.page_title, v.referrer_url, v.visited_at);
+            inserted++;
+        } catch (e) {}
+    }
+    
+    res.json({ success: true, inserted });
+});
+
+// Get crawler stats for dashboard
+app.get('/api/crawler-stats', authenticateToken, (req, res) => {
+    const days = parseInt(req.query.days) || 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    
+    const totalCrawlers = db.prepare('SELECT COUNT(*) as count FROM crawler_visits WHERE visited_at >= ?').get(since);
+    const totalReferrals = db.prepare('SELECT COUNT(*) as count FROM referral_visits WHERE visited_at >= ?').get(since);
+    
+    const byCompany = db.prepare(`
+        SELECT company, COUNT(*) as visits FROM crawler_visits 
+        WHERE visited_at >= ? GROUP BY company ORDER BY visits DESC
+    `).all(since);
+    
+    const byType = db.prepare(`
+        SELECT bot_type, COUNT(*) as visits FROM crawler_visits 
+        WHERE visited_at >= ? GROUP BY bot_type ORDER BY visits DESC
+    `).all(since);
+    
+    const dailyTrend = db.prepare(`
+        SELECT DATE(visited_at) as date, COUNT(*) as visits FROM crawler_visits 
+        WHERE visited_at >= ? GROUP BY DATE(visited_at) ORDER BY date ASC
+    `).all(since);
+    
+    const referralsByPlatform = db.prepare(`
+        SELECT platform_name, COUNT(*) as visits FROM referral_visits 
+        WHERE visited_at >= ? GROUP BY platform_name ORDER BY visits DESC
+    `).all(since);
+    
+    const topPages = db.prepare(`
+        SELECT page_url, COUNT(*) as visits, GROUP_CONCAT(DISTINCT company) as companies
+        FROM crawler_visits WHERE visited_at >= ?
+        GROUP BY page_url ORDER BY visits DESC LIMIT 10
+    `).all(since);
+    
+    res.json({
+        totalCrawlerVisits: totalCrawlers?.count || 0,
+        totalReferralVisits: totalReferrals?.count || 0,
+        byCompany,
+        byType,
+        dailyTrend,
+        referralsByPlatform,
+        topPages
+    });
+});
+
+// Get registered sites
+app.get('/api/sites', authenticateToken, (req, res) => {
+    const sites = db.prepare('SELECT id, domain, created_at FROM sites WHERE user_id = ?').all(req.user.id);
+    res.json(sites);
 });
 
 // Health check
