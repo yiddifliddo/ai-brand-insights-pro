@@ -205,6 +205,7 @@
             const [historyData, setHistoryData] = useState(null);
             const [expandedResponse, setExpandedResponse] = useState(null);
             const [crawlerStats, setCrawlerStats] = useState(null);
+            const [showSettingsMenu, setShowSettingsMenu] = useState(false);
             
             useEffect(() => {
                 loadData();
@@ -460,30 +461,61 @@
                                     )}
                                 </button>
                                 
-                                {/* Settings/API Keys */}
-                                <button onClick={() => setPage('api-keys')} className="p-2 text-slate-400 hover:text-white transition-colors" title="API Keys">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                </button>
-                                
-                                {/* Brands/Competitors Management */}
-                                <button onClick={() => setPage('brands')} className="p-2 text-slate-400 hover:text-white transition-colors" title="Manage Brands & Competitors">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
-                                </button>
-                                
-                                {/* WordPress Sites */}
-                                <button onClick={() => setPage('sites')} className="p-2 text-slate-400 hover:text-white transition-colors" title="WordPress Sites">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                                    </svg>
-                                </button>
-                                
-                                {/* Logout */}
-                                <button onClick={onLogout} className="text-slate-400 hover:text-white text-sm">Sign out</button>
+                                {/* Settings Dropdown Menu */}
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                                        className="p-2 text-slate-400 hover:text-white transition-colors"
+                                        title="Settings Menu"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                        </svg>
+                                    </button>
+                                    
+                                    {showSettingsMenu && (
+                                        <div className="absolute right-0 mt-2 w-56 glass-dark rounded-xl shadow-xl z-50 py-2">
+                                            <button 
+                                                onClick={() => { setPage('api-keys'); setShowSettingsMenu(false); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700/50 transition-colors"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                API Keys
+                                            </button>
+                                            <button 
+                                                onClick={() => { setPage('brands'); setShowSettingsMenu(false); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700/50 transition-colors"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                </svg>
+                                                Brands, Competitors & Queries
+                                            </button>
+                                            <button 
+                                                onClick={() => { setPage('sites'); setShowSettingsMenu(false); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700/50 transition-colors"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                                                </svg>
+                                                WordPress Sites
+                                            </button>
+                                            <div className="border-t border-slate-700 my-2"></div>
+                                            <button 
+                                                onClick={() => { onLogout(); setShowSettingsMenu(false); }}
+                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-slate-700/50 transition-colors"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                </svg>
+                                                Sign Out
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </header>
@@ -1220,6 +1252,8 @@
             const [selectedBrand, setSelectedBrand] = useState(null);
             const [brandDetails, setBrandDetails] = useState(null);
             const [newCompetitor, setNewCompetitor] = useState('');
+            const [newQuery, setNewQuery] = useState('');
+            const [newQueryCategory, setNewQueryCategory] = useState('general');
             const [saving, setSaving] = useState(false);
             const [editingBrand, setEditingBrand] = useState(null);
             const [editName, setEditName] = useState('');
@@ -1291,6 +1325,33 @@
                 }
             };
             
+            const addQuery = async () => {
+                if (!newQuery.trim() || !selectedBrand) return;
+                setSaving(true);
+                try {
+                    await api.post(`/brands/${selectedBrand}/queries`, { 
+                        query_text: newQuery.trim(),
+                        category: newQueryCategory 
+                    });
+                    setNewQuery('');
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to add query: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const deleteQuery = async (queryId) => {
+                if (!confirm('Remove this query?')) return;
+                try {
+                    await api.delete(`/queries/${queryId}`);
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to remove query: ' + err.message);
+                }
+            };
+            
             return (
                 <div className="min-h-screen p-8">
                     <div className="max-w-4xl mx-auto">
@@ -1298,7 +1359,7 @@
                             ← Back to Dashboard
                         </button>
                         
-                        <h2 className="text-2xl font-bold mb-6">Manage Brands & Competitors</h2>
+                        <h2 className="text-2xl font-bold mb-6">Manage Brands, Competitors & Queries</h2>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Brand List */}
@@ -1413,6 +1474,82 @@
                                                     No competitors added yet. Add competitor names above to track them in your analysis.
                                                 </p>
                                             )}
+                                        </div>
+                                        
+                                        {/* Queries Section */}
+                                        <div className="mt-8 pt-6 border-t border-slate-700">
+                                            <h3 className="font-semibold mb-4 flex items-center">
+                                                Queries for {brandDetails?.name}
+                                                <InfoTooltip term="queries" />
+                                            </h3>
+                                            
+                                            <div className="mb-4">
+                                                <div className="flex gap-3">
+                                                    <input
+                                                        type="text"
+                                                        value={newQuery}
+                                                        onChange={e => setNewQuery(e.target.value)}
+                                                        onKeyPress={e => e.key === 'Enter' && addQuery()}
+                                                        placeholder="Enter a query (e.g., Best ultra low temperature freezers)"
+                                                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
+                                                    />
+                                                    <select
+                                                        value={newQueryCategory}
+                                                        onChange={e => setNewQueryCategory(e.target.value)}
+                                                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-3 focus:outline-none focus:border-sky-500"
+                                                    >
+                                                        <option value="general">General</option>
+                                                        <option value="brand">Brand</option>
+                                                        <option value="product">Product</option>
+                                                        <option value="comparison">Comparison</option>
+                                                        <option value="use_case">Use Case</option>
+                                                    </select>
+                                                    <button
+                                                        onClick={addQuery}
+                                                        disabled={saving || !newQuery.trim()}
+                                                        className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50"
+                                                    >
+                                                        {saving ? 'Adding...' : 'Add'}
+                                                    </button>
+                                                </div>
+                                                <p className="text-slate-500 text-sm mt-2">
+                                                    Add custom queries to test how AI platforms respond. Example: "Ultra low temperature freezers for vaccine storage"
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {brandDetails.queries?.length > 0 ? (
+                                                    brandDetails.queries.map(q => (
+                                                        <div key={q.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                                                            <div className="flex-1">
+                                                                <p className="text-sm">{q.query_text}</p>
+                                                                <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded ${
+                                                                    q.category === 'brand' ? 'bg-blue-500/20 text-blue-400' :
+                                                                    q.category === 'product' ? 'bg-green-500/20 text-green-400' :
+                                                                    q.category === 'comparison' ? 'bg-purple-500/20 text-purple-400' :
+                                                                    q.category === 'use_case' ? 'bg-orange-500/20 text-orange-400' :
+                                                                    'bg-slate-500/20 text-slate-400'
+                                                                }`}>
+                                                                    {q.category || 'general'}
+                                                                </span>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => deleteQuery(q.id)}
+                                                                className="text-red-400 hover:text-red-300 p-2 ml-2"
+                                                                title="Remove query"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-slate-500 text-center py-4">
+                                                        No queries added yet. Add queries to test AI visibility.
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                     </>
                                 )}
