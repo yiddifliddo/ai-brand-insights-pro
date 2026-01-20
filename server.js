@@ -480,12 +480,12 @@ async function runScheduledAnalysis() {
         
         try {
             const competitors = db.prepare('SELECT * FROM competitors WHERE brand_id = ?').all(brand.id);
-            const platforms = ['chatgpt', 'gemini', 'perplexity'];
+            const platforms = ['chatgpt', 'gemini', 'perplexity', 'claude'];
             const results = { visibility: 0, mentions: 0, totalQueries: 0, sentiment: 0, citations: 0 };
             let platformCount = 0;
             
             for (const platform of platforms) {
-                const apiKey = getApiKey(platform === 'chatgpt' ? 'openai' : platform === 'gemini' ? 'google' : platform);
+                const apiKey = getApiKey(platform === 'chatgpt' ? 'openai' : platform === 'gemini' ? 'google' : platform === 'claude' ? 'anthropic' : platform);
                 if (!apiKey) continue;
                 
                 const queries = db.prepare('SELECT * FROM queries WHERE brand_id = ? AND is_active = 1').all(brand.id);
@@ -509,6 +509,7 @@ async function runScheduledAnalysis() {
                             case 'chatgpt': response = await queryChatGPT(query.query_text); break;
                             case 'gemini': response = await queryGemini(query.query_text); break;
                             case 'perplexity': response = await queryPerplexity(query.query_text); break;
+                            case 'claude': response = await queryClaude(query.query_text); break;
                         }
                         
                         if (response.error) {
@@ -782,7 +783,7 @@ app.get('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
 app.post('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
     const { platform, api_key } = req.body;
     
-    if (!['openai', 'google', 'perplexity'].includes(platform)) {
+    if (!['openai', 'google', 'perplexity', 'anthropic'].includes(platform)) {
         return res.status(400).json({ error: 'Invalid platform' });
     }
     
@@ -901,7 +902,7 @@ async function queryGemini(prompt) {
     
     try {
         console.log('🔍 Gemini: Querying...');
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -948,6 +949,45 @@ async function queryPerplexity(prompt) {
             citations: data.citations || []
         };
     } catch (error) {
+        return { error: error.message, response: null };
+    }
+}
+
+async function queryClaude(prompt) {
+    const apiKey = getApiKey('anthropic');
+    if (!apiKey) {
+        console.log('❌ Claude: No API key configured');
+        return { error: 'Claude not configured', response: null };
+    }
+    
+    try {
+        console.log('🔍 Claude: Querying...');
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-5-sonnet-20241022',
+                max_tokens: 1000,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('❌ Claude Error:', data.error.message);
+            return { error: data.error.message, response: null };
+        }
+        
+        const text = data.content?.[0]?.text || '';
+        console.log('✅ Claude: Got response');
+        return { response: text };
+    } catch (error) {
+        console.error('❌ Claude Error:', error.message);
         return { error: error.message, response: null };
     }
 }
@@ -1002,7 +1042,7 @@ function categorizeDomain(domain) {
 
 // Run analysis endpoint
 app.post('/api/brands/:id/analyze', authenticateToken, async (req, res) => {
-    const { platforms = ['chatgpt', 'gemini', 'perplexity'] } = req.body;
+    const { platforms = ['chatgpt', 'gemini', 'perplexity', 'claude'] } = req.body;
     const brandId = req.params.id;
     
     const brand = db.prepare('SELECT * FROM brands WHERE id = ?').get(brandId);
@@ -1033,6 +1073,7 @@ app.post('/api/brands/:id/analyze', authenticateToken, async (req, res) => {
                 case 'chatgpt': response = await queryChatGPT(query.query_text); break;
                 case 'gemini': response = await queryGemini(query.query_text); break;
                 case 'perplexity': response = await queryPerplexity(query.query_text); break;
+                case 'claude': response = await queryClaude(query.query_text); break;
             }
             
             if (response.error) {
