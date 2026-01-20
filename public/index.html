@@ -247,6 +247,7 @@
                     if (apiStatus.anthropic) platforms.push('claude');
                     if (apiStatus.openai) platforms.push('chatgpt');
                     if (apiStatus.google) platforms.push('gemini');
+                    if (apiStatus.mistral) platforms.push('mistral');
                     if (apiStatus.perplexity) platforms.push('perplexity');
                     
                     if (platforms.length === 0) {
@@ -361,6 +362,7 @@
                                         { id: 'chatgpt', label: 'ChatGPT', icon: '🤖' },
                                         { id: 'gemini', label: 'Gemini', icon: '✨' },
                                         { id: 'claude', label: 'Claude', icon: '🧠' },
+                                        { id: 'mistral', label: 'Mistral', icon: '🌀' },
                                         { id: 'perplexity', label: 'Perplexity', icon: '🔍' }
                                     ].map(p => (
                                         <button
@@ -735,6 +737,7 @@
                 { id: 'openai', name: 'OpenAI (ChatGPT)', icon: '🤖' },
                 { id: 'google', name: 'Google (Gemini)', icon: '✨' },
                 { id: 'anthropic', name: 'Anthropic (Claude)', icon: '🧠' },
+                { id: 'mistral', name: 'Mistral AI', icon: '🌀' },
                 { id: 'perplexity', name: 'Perplexity', icon: '🔍' }
             ];
             
@@ -801,6 +804,7 @@
                                 <p><span className="text-slate-400">OpenAI:</span> <a href="https://platform.openai.com/api-keys" target="_blank" className="text-sky-400 hover:underline">platform.openai.com/api-keys</a></p>
                                 <p><span className="text-slate-400">Google AI:</span> <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-sky-400 hover:underline">aistudio.google.com/app/apikey</a></p>
                                 <p><span className="text-slate-400">Anthropic:</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-sky-400 hover:underline">console.anthropic.com/settings/keys</a></p>
+                                <p><span className="text-slate-400">Mistral:</span> <a href="https://console.mistral.ai/api-keys" target="_blank" className="text-sky-400 hover:underline">console.mistral.ai/api-keys</a></p>
                                 <p><span className="text-slate-400">Perplexity:</span> <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-sky-400 hover:underline">perplexity.ai/settings/api</a></p>
                             </div>
                         </div>
