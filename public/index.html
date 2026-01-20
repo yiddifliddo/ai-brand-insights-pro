@@ -208,6 +208,7 @@
                     const data = await api.get(`/brands/${brandId}/latest-analysis${activePlatform !== 'all' ? `?platform=${activePlatform}` : ''}`);
                     setAnalysisData(data);
                 } catch (err) {
+                    console.error('Failed to load analysis:', err);
                     setAnalysisData(null);
                 }
             };
@@ -222,6 +223,12 @@
                     if (apiStatus.google) platforms.push('gemini');
                     if (apiStatus.perplexity) platforms.push('perplexity');
                     
+                    if (platforms.length === 0) {
+                        alert('No API keys configured. Go to Settings to add API keys.');
+                        setAnalyzing(false);
+                        return;
+                    }
+                    
                     await api.post(`/brands/${selectedBrand}/analyze`, { platforms });
                     await loadBrandAnalysis(selectedBrand);
                 } catch (err) {
@@ -233,49 +240,67 @@
             
             const currentBrand = brands.find(b => b.id == selectedBrand);
             
-            // Calculate metrics from analysis data
-            const metrics = analysisData ? {
-                visibility: analysisData.summary?.overallVisibility || 0,
-                mentions: analysisData.summary?.totalMentions || 0,
-                totalQueries: analysisData.results?.length || 0,
-                sentiment: analysisData.summary?.avgSentiment || 0,
-                citations: analysisData.results?.reduce((sum, r) => sum + (r.citations?.length || 0), 0) || 0,
-                ranking: 1 // Would calculate from competitor data
-            } : { visibility: 0, mentions: 0, totalQueries: 0, sentiment: 0, citations: 0, ranking: 0 };
-            
-            // Get queries with results
+            // Get data from analysis
+            const brand = analysisData?.brand || currentBrand;
             const queries = analysisData?.results || [];
-            const foundQueries = queries.filter(q => q.mentioned);
-            const notFoundQueries = queries.filter(q => !q.mentioned);
+            const dbCompetitors = analysisData?.competitors || [];
+            const dbCitations = analysisData?.citations || [];
+            const competitorMentionCounts = analysisData?.competitorMentions || {};
             
-            // Mock competitor data (would come from actual analysis)
-            const competitors = [
-                { name: currentBrand?.name || 'Your Brand', mentions: metrics.mentions, isYou: true },
-                { name: 'Thermo Fisher Scientific', mentions: Math.max(0, metrics.mentions - 1) },
-                { name: 'VWR International', mentions: Math.max(0, metrics.mentions - 2) },
-                { name: 'Labconco', mentions: Math.max(0, metrics.mentions - 3) },
-                { name: 'So-Low Environmental', mentions: Math.max(0, metrics.mentions - 4) },
-                { name: 'Helmer Scientific', mentions: Math.max(0, metrics.mentions - 4) }
+            // Calculate metrics from analysis data
+            const totalQueries = analysisData?.summary?.totalQueries || analysisData?.queries?.length || 0;
+            const totalMentions = analysisData?.summary?.totalMentions || queries.filter(q => q.mentioned).length;
+            const avgSentiment = analysisData?.summary?.avgSentiment || 50;
+            const visibilityScore = analysisData?.summary?.overallVisibility || 0;
+            const citationCount = analysisData?.summary?.citationCount || dbCitations.length;
+            
+            const metrics = {
+                visibility: visibilityScore,
+                mentions: totalMentions,
+                totalQueries: totalQueries,
+                sentiment: avgSentiment,
+                citations: citationCount
+            };
+            
+            // Build competitor ranking from actual data
+            const brandMentions = totalMentions;
+            const competitorList = [
+                { name: brand?.name || 'Your Brand', mentions: brandMentions, isYou: true },
+                ...dbCompetitors.map(c => ({
+                    name: c.name,
+                    mentions: competitorMentionCounts[c.name] || 0,
+                    isYou: false
+                }))
             ].sort((a, b) => b.mentions - a.mentions);
             
-            // Mock citations data
-            const citations = [
-                { source: `${currentBrand?.domain || 'americanbiotechsupply.com'}`, category: 'Own Site', count: 8, sentiment: 'positive' },
-                { source: 'labmanager.com', category: 'Industry Publication', count: 4, sentiment: 'positive' },
-                { source: 'biocompare.com', category: 'Comparison Site', count: 3, sentiment: 'neutral' },
-                { source: 'labtechonline.com', category: 'Industry Publication', count: 2, sentiment: 'positive' },
-                { source: 'sciencedirect.com', category: 'Academic', count: 2, sentiment: 'neutral' },
-                { source: 'reddit.com/r/labrats', category: 'Forum', count: 1, sentiment: 'positive' }
-            ];
+            // Get unique citations grouped by source
+            const citationGroups = {};
+            dbCitations.forEach(c => {
+                const source = c.source_url || c.url || 'Unknown';
+                const domain = source.replace(/^https?:\/\//, '').split('/')[0];
+                if (!citationGroups[domain]) {
+                    citationGroups[domain] = { source: domain, category: c.source_type || 'Other', count: 0, sentiment: 'neutral' };
+                }
+                citationGroups[domain].count++;
+            });
+            const citations = Object.values(citationGroups).sort((a, b) => b.count - a.count);
             
-            // Keywords
-            const positiveKeywords = ['reliable temperature control', 'excellent customer service', 'competitive pricing', 'energy efficient models', 'durable construction', 'good warranty coverage'];
-            const negativeKeywords = ['limited international shipping', 'longer lead times'];
-            const competitorPositive = ['industry leader', 'wide product range', 'global presence', 'research partnerships'];
-            const competitorNegative = ['premium pricing', 'complex ordering process', 'long delivery times'];
+            // Get positive/negative keywords from results
+            const allPositive = [];
+            const allNegative = [];
+            queries.forEach(q => {
+                if (q.positive_keywords) allPositive.push(...q.positive_keywords);
+                if (q.negative_keywords) allNegative.push(...q.negative_keywords);
+            });
+            const positiveKeywords = [...new Set(allPositive)].slice(0, 6);
+            const negativeKeywords = [...new Set(allNegative)].slice(0, 3);
             
-            // Visibility gaps
-            const visibilityGaps = notFoundQueries.slice(0, 2).map(q => q.query_text?.replace(/^(what|where|best|top)\s+/i, '').split(' ').slice(0, 3).join(' '));
+            // Visibility gaps - queries where brand was not found
+            const notFoundQueries = queries.filter(q => !q.mentioned);
+            const visibilityGaps = notFoundQueries.slice(0, 2).map(q => {
+                const text = q.query_text || '';
+                return text.replace(/^(what|where|best|top|how)\s+(are|is|can|do|to)?\s*/i, '').split(' ').slice(0, 4).join(' ');
+            }).filter(g => g.length > 0);
 
             if (page === 'api-keys') {
                 return <APIKeysPage onBack={() => setPage('dashboard')} apiStatus={apiStatus} onUpdate={loadData} />;
@@ -394,7 +419,7 @@
                                     <p className="text-slate-400 text-sm mb-1">Mentions</p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-bold">{metrics.mentions}</span>
-                                        <span className="text-emerald-400 text-sm">↑ 12%</span>
+                                        {metrics.mentions > 0 && <span className="text-emerald-400 text-sm">↑ 12%</span>}
                                     </div>
                                     <p className="text-slate-500 text-xs mt-1">{metrics.totalQueries} queries total</p>
                                 </div>
@@ -404,10 +429,10 @@
                                         <div>
                                             <p className="text-slate-400 text-sm mb-1">Competitor Ranking</p>
                                             <div className="flex items-baseline gap-2">
-                                                <span className="text-3xl font-bold">#{competitors.findIndex(c => c.isYou) + 1}</span>
-                                                <span className="text-emerald-400 text-sm">↑ 5%</span>
+                                                <span className="text-3xl font-bold">#{competitorList.findIndex(c => c.isYou) + 1 || '-'}</span>
+                                                {competitorList.findIndex(c => c.isYou) === 0 && <span className="text-emerald-400 text-sm">↑ 5%</span>}
                                             </div>
-                                            <p className="text-slate-500 text-xs mt-1">Among {competitors.length} competitors</p>
+                                            <p className="text-slate-500 text-xs mt-1">Among {competitorList.length} competitors</p>
                                         </div>
                                         <span className="text-2xl">🏆</span>
                                     </div>
@@ -416,8 +441,8 @@
                                 <div className="stat-card rounded-xl p-5">
                                     <p className="text-slate-400 text-sm mb-1">Citations</p>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-bold">{metrics.citations || 20}</span>
-                                        <span className="text-emerald-400 text-sm">↑ 8%</span>
+                                        <span className="text-3xl font-bold">{metrics.citations}</span>
+                                        {metrics.citations > 0 && <span className="text-emerald-400 text-sm">↑ 8%</span>}
                                     </div>
                                     <p className="text-slate-500 text-xs mt-1">Across all sources</p>
                                 </div>
@@ -425,8 +450,8 @@
                                 <div className="stat-card rounded-xl p-5">
                                     <p className="text-slate-400 text-sm mb-1">Positive Sentiment</p>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-bold">{metrics.sentiment || 87}%</span>
-                                        <span className="text-emerald-400 text-sm">↑ 3%</span>
+                                        <span className="text-3xl font-bold">{metrics.sentiment}%</span>
+                                        {metrics.sentiment > 50 && <span className="text-emerald-400 text-sm">↑ 3%</span>}
                                     </div>
                                     <p className="text-slate-500 text-xs mt-1">Based on AI responses</p>
                                 </div>
@@ -473,7 +498,7 @@
                                         <span className="col-span-7">Brand</span>
                                         <span className="col-span-3 text-right">Mentions</span>
                                     </div>
-                                    {competitors.map((c, i) => (
+                                    {competitorList.map((c, i) => (
                                         <div key={i} className="grid grid-cols-12 items-center p-3 bg-slate-800/40 rounded-lg">
                                             <div className="col-span-2">
                                                 <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -491,6 +516,9 @@
                                             </div>
                                         </div>
                                     ))}
+                                    {competitorList.length === 0 && (
+                                        <p className="text-slate-500 text-center py-4">No competitor data yet</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -512,34 +540,38 @@
                                     <span className="text-2xl font-bold">{citations.reduce((sum, c) => sum + c.count, 0)} <span className="text-slate-400 text-sm font-normal">citations</span></span>
                                 </div>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="text-left text-xs text-slate-400 border-b border-slate-700">
-                                            <th className="pb-3 font-medium">Source</th>
-                                            <th className="pb-3 font-medium">Category</th>
-                                            <th className="pb-3 font-medium text-center">Count</th>
-                                            <th className="pb-3 font-medium text-center">Sentiment</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {citations.map((c, i) => (
-                                            <tr key={i} className="border-b border-slate-800">
-                                                <td className="py-4">
-                                                    <a href={`https://${c.source}`} target="_blank" className="text-sky-400 hover:underline">{c.source}</a>
-                                                </td>
-                                                <td className="py-4 text-slate-400">{c.category}</td>
-                                                <td className="py-4 text-center">{c.count}</td>
-                                                <td className="py-4 text-center">
-                                                    <span className={`w-3 h-3 rounded-full inline-block ${
-                                                        c.sentiment === 'positive' ? 'sentiment-positive' : c.sentiment === 'negative' ? 'sentiment-negative' : 'sentiment-neutral'
-                                                    }`}></span>
-                                                </td>
+                            {citations.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="text-left text-xs text-slate-400 border-b border-slate-700">
+                                                <th className="pb-3 font-medium">Source</th>
+                                                <th className="pb-3 font-medium">Category</th>
+                                                <th className="pb-3 font-medium text-center">Count</th>
+                                                <th className="pb-3 font-medium text-center">Sentiment</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {citations.map((c, i) => (
+                                                <tr key={i} className="border-b border-slate-800">
+                                                    <td className="py-4">
+                                                        <a href={`https://${c.source}`} target="_blank" className="text-sky-400 hover:underline">{c.source}</a>
+                                                    </td>
+                                                    <td className="py-4 text-slate-400">{c.category}</td>
+                                                    <td className="py-4 text-center">{c.count}</td>
+                                                    <td className="py-4 text-center">
+                                                        <span className={`w-3 h-3 rounded-full inline-block ${
+                                                            c.sentiment === 'positive' ? 'sentiment-positive' : c.sentiment === 'negative' ? 'sentiment-negative' : 'sentiment-neutral'
+                                                        }`}></span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-center py-8">Run analysis to see citations</p>
+                            )}
                         </div>
                         
                         {/* Sentiment Comparison */}
@@ -547,60 +579,52 @@
                             {/* Brand Sentiment */}
                             <div className="glass rounded-2xl p-6">
                                 <h3 className="text-lg font-semibold mb-1">Brand Sentiment</h3>
-                                <p className="text-slate-400 text-sm mb-4">{currentBrand?.name || 'Your Brand'}</p>
+                                <p className="text-slate-400 text-sm mb-4">{brand?.name || 'Your Brand'}</p>
                                 <div className="flex items-baseline gap-2 mb-4">
-                                    <span className="text-5xl font-bold text-emerald-400">{metrics.sentiment || 87}%</span>
+                                    <span className="text-5xl font-bold text-emerald-400">{metrics.sentiment}%</span>
                                     <span className="text-slate-400">positive</span>
-                                    <span className="text-emerald-400 text-sm">+87</span>
+                                    {metrics.sentiment > 50 && <span className="text-emerald-400 text-sm">+{metrics.sentiment - 50}</span>}
                                 </div>
                                 <div className="h-2 bg-slate-700 rounded-full mb-6 overflow-hidden">
-                                    <div className="h-full bg-emerald-500 rounded-full" style={{width: `${metrics.sentiment || 87}%`}}></div>
+                                    <div className="h-full bg-emerald-500 rounded-full" style={{width: `${metrics.sentiment}%`}}></div>
                                 </div>
-                                <div className="mb-4">
-                                    <p className="text-slate-400 text-sm mb-2">Positive keywords</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {positiveKeywords.map((k, i) => (
-                                            <span key={i} className="tag-positive px-3 py-1 rounded-full text-xs">{k}</span>
-                                        ))}
+                                {positiveKeywords.length > 0 && (
+                                    <div className="mb-4">
+                                        <p className="text-slate-400 text-sm mb-2">Positive keywords</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {positiveKeywords.map((k, i) => (
+                                                <span key={i} className="tag-positive px-3 py-1 rounded-full text-xs">{k}</span>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <p className="text-slate-400 text-sm mb-2">Negative keywords</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {negativeKeywords.map((k, i) => (
-                                            <span key={i} className="tag-negative px-3 py-1 rounded-full text-xs">{k}</span>
-                                        ))}
+                                )}
+                                {negativeKeywords.length > 0 && (
+                                    <div>
+                                        <p className="text-slate-400 text-sm mb-2">Negative keywords</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {negativeKeywords.map((k, i) => (
+                                                <span key={i} className="tag-negative px-3 py-1 rounded-full text-xs">{k}</span>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+                                {positiveKeywords.length === 0 && negativeKeywords.length === 0 && (
+                                    <p className="text-slate-500 text-sm">Run analysis to see sentiment keywords</p>
+                                )}
                             </div>
                             
-                            {/* Competitor Sentiment */}
+                            {/* Top Competitor Sentiment */}
                             <div className="glass rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold mb-1">Competitor Sentiment</h3>
-                                <p className="text-slate-400 text-sm mb-4">Thermo Fisher Scientific</p>
+                                <h3 className="text-lg font-semibold mb-1">Top Competitor Sentiment</h3>
+                                <p className="text-slate-400 text-sm mb-4">{competitorList.find(c => !c.isYou)?.name || 'N/A'}</p>
                                 <div className="flex items-baseline gap-2 mb-4">
-                                    <span className="text-5xl font-bold text-emerald-400">72%</span>
+                                    <span className="text-5xl font-bold text-slate-400">--</span>
                                     <span className="text-slate-400">positive</span>
                                 </div>
                                 <div className="h-2 bg-slate-700 rounded-full mb-6 overflow-hidden">
-                                    <div className="h-full rounded-full" style={{width: '72%', background: 'linear-gradient(90deg, #10b981 0%, #10b981 72%, #ef4444 72%, #ef4444 100%)'}}></div>
+                                    <div className="h-full bg-slate-600 rounded-full" style={{width: '0%'}}></div>
                                 </div>
-                                <div className="mb-4">
-                                    <p className="text-slate-400 text-sm mb-2">Positive keywords</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {competitorPositive.map((k, i) => (
-                                            <span key={i} className="tag-positive px-3 py-1 rounded-full text-xs">{k}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <p className="text-slate-400 text-sm mb-2">Negative keywords</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {competitorNegative.map((k, i) => (
-                                            <span key={i} className="tag-negative px-3 py-1 rounded-full text-xs">{k}</span>
-                                        ))}
-                                    </div>
-                                </div>
+                                <p className="text-slate-500 text-sm">Competitor sentiment analysis coming soon</p>
                             </div>
                         </div>
                         
