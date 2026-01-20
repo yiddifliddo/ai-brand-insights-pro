@@ -901,11 +901,22 @@ async function queryGemini(prompt) {
     
     try {
         console.log('🔍 Gemini: Querying...');
-        const { GoogleGenerativeAI } = require('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('❌ Gemini Error:', data.error.message);
+            return { error: data.error.message, response: null };
+        }
+        
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         console.log('✅ Gemini: Got response');
         return { response: text };
     } catch (error) {
