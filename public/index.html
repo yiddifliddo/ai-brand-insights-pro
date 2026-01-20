@@ -43,8 +43,8 @@
         .info-tooltip { position: relative; display: inline-flex; align-items: center; margin-left: 6px; }
         .info-icon { width: 16px; height: 16px; background: rgba(100, 116, 139, 0.5); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #94a3b8; cursor: help; transition: all 0.2s; }
         .info-icon:hover { background: rgba(56, 189, 248, 0.3); color: #38bdf8; }
-        .info-tooltip .tooltip-text { visibility: hidden; opacity: 0; width: 280px; background: #1e293b; color: #e2e8f0; text-align: left; border-radius: 8px; padding: 12px; position: absolute; z-index: 100; bottom: 125%; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 400; line-height: 1.5; box-shadow: 0 10px 40px rgba(0,0,0,0.4); border: 1px solid #334155; transition: opacity 0.2s, visibility 0.2s; }
-        .info-tooltip .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: #1e293b transparent transparent transparent; }
+        .info-tooltip .tooltip-text { visibility: hidden; opacity: 0; width: 280px; background: #1e293b; color: #e2e8f0; text-align: left; border-radius: 8px; padding: 12px; position: absolute; z-index: 1000; bottom: auto; top: 125%; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 400; line-height: 1.5; box-shadow: 0 10px 40px rgba(0,0,0,0.4); border: 1px solid #334155; transition: opacity 0.2s, visibility 0.2s; }
+        .info-tooltip .tooltip-text::after { content: ""; position: absolute; bottom: 100%; top: auto; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: transparent transparent #1e293b transparent; }
         .info-tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
     </style>
 </head>
@@ -599,7 +599,9 @@
                                     </table>
                                 </div>
                             ) : (
-                                <p className="text-slate-500 text-center py-8">Run analysis to see citations</p>
+                                <p className="text-slate-500 text-center py-8">
+                                    {queries.length > 0 ? 'No citations found. Try running analysis with Perplexity for citation data.' : 'Run analysis to see citations'}
+                                </p>
                             )}
                         </div>
                         
