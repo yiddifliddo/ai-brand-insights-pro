@@ -957,30 +957,43 @@ async function queryGemini(prompt) {
         return { error: 'Gemini not configured', response: null };
     }
     
-    try {
-        console.log('🔍 Gemini: Querying...');
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            console.error('❌ Gemini Error:', data.error.message);
-            return { error: data.error.message, response: null };
+    // List of models to try in order (newest to oldest)
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+    
+    for (const model of models) {
+        try {
+            console.log(`🔍 Gemini: Trying ${model}...`);
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+            
+            if (response.status === 404) {
+                console.log(`⚠️ Gemini: Model ${model} not found, trying next...`);
+                continue;
+            }
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                console.error(`❌ Gemini Error (${model}):`, data.error.message);
+                if (data.error.code === 404) continue;
+                return { error: data.error.message, response: null };
+            }
+            
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            console.log(`✅ Gemini: Got response from ${model}`);
+            return { response: text };
+        } catch (error) {
+            console.error(`❌ Gemini Error (${model}):`, error.message);
+            continue;
         }
-        
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        console.log('✅ Gemini: Got response');
-        return { response: text };
-    } catch (error) {
-        console.error('❌ Gemini Error:', error.message);
-        return { error: error.message, response: null };
     }
+    
+    return { error: 'All Gemini models failed', response: null };
 }
 
 async function queryPerplexity(prompt) {
