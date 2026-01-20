@@ -39,6 +39,13 @@
         .radar-container { position: relative; width: 200px; height: 200px; }
         .visibility-score { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
         .alert-warning { background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.05)); border: 1px solid rgba(245, 158, 11, 0.3); }
+        /* Info Tooltip Styles */
+        .info-tooltip { position: relative; display: inline-flex; align-items: center; margin-left: 6px; }
+        .info-icon { width: 16px; height: 16px; background: rgba(100, 116, 139, 0.5); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #94a3b8; cursor: help; transition: all 0.2s; }
+        .info-icon:hover { background: rgba(56, 189, 248, 0.3); color: #38bdf8; }
+        .info-tooltip .tooltip-text { visibility: hidden; opacity: 0; width: 280px; background: #1e293b; color: #e2e8f0; text-align: left; border-radius: 8px; padding: 12px; position: absolute; z-index: 100; bottom: 125%; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 400; line-height: 1.5; box-shadow: 0 10px 40px rgba(0,0,0,0.4); border: 1px solid #334155; transition: opacity 0.2s, visibility 0.2s; }
+        .info-tooltip .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: #1e293b transparent transparent transparent; }
+        .info-tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
     </style>
 </head>
 <body class="text-slate-100">
@@ -46,6 +53,25 @@
     
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
+        
+        // Glossary definitions
+        const glossary = {
+            visibility: "How often your brand appears when AI platforms answer relevant questions. A higher score means AI is more likely to mention your brand.",
+            sentiment: "Whether AI talks about your brand positively or negatively. Positive sentiment means AI recommends or praises your brand.",
+            mentions: "The number of times your brand name appears in AI responses across all queries tested.",
+            citations: "Links and sources that AI platforms reference when mentioning your brand. Shows where AI gets its information about you.",
+            queries: "Questions asked to AI platforms to test if your brand appears. Examples: 'Best laboratory freezers', 'What is American Biotech Supply?'",
+            competitors: "Rival brands in your market. The app tracks how often competitors appear vs. your brand to show competitive positioning.",
+            ranking: "Your position compared to competitors based on how often each brand is mentioned by AI platforms."
+        };
+        
+        // Info Tooltip Component
+        const InfoTooltip = ({ term }) => (
+            <span className="info-tooltip">
+                <span className="info-icon">i</span>
+                <span className="tooltip-text">{glossary[term]}</span>
+            </span>
+        );
         
         // API Helper
         const api = {
@@ -143,7 +169,7 @@
                             borderWidth: 2,
                             pointBackgroundColor: '#38bdf8',
                             pointBorderColor: '#fff',
-                            pointRadius: 4
+                            pointRadius: 5
                         }]
                     },
                     options: {
@@ -154,9 +180,9 @@
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: { display: false },
-                                grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                                angleLines: { color: 'rgba(148, 163, 184, 0.1)' },
-                                pointLabels: { color: '#94a3b8', font: { size: 11 } }
+                                grid: { color: 'rgba(148, 163, 184, 0.15)' },
+                                angleLines: { color: 'rgba(148, 163, 184, 0.15)' },
+                                pointLabels: { color: '#94a3b8', font: { size: 13 } }
                             }
                         },
                         plugins: { legend: { display: false } }
@@ -164,7 +190,7 @@
                 });
             }, [data]);
             
-            return <canvas ref={canvasRef} width="200" height="200"></canvas>;
+            return <canvas ref={canvasRef} style={{width: '100%', height: '100%'}}></canvas>;
         };
 
         // Main Dashboard
@@ -397,18 +423,20 @@
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
                             {/* Radar Chart Card */}
                             <div className="lg:col-span-5 glass rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold mb-4">AI Visibility Index</h3>
+                                <h3 className="text-lg font-semibold mb-4">AI Visibility Index <InfoTooltip term="visibility" /></h3>
                                 <div className="flex items-center justify-center">
-                                    <div className="relative">
+                                    <div className="relative" style={{width: '320px', height: '320px'}}>
                                         <RadarChart data={{
                                             mentions: Math.min(100, metrics.mentions * 10),
                                             ranking: metrics.ranking ? (100 - (metrics.ranking - 1) * 20) : 0,
                                             citations: Math.min(100, metrics.citations * 5),
                                             sentiment: metrics.sentiment
                                         }} />
-                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                                            <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
-                                            <div className="text-slate-400 text-sm">/ 100</div>
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <div className="text-center">
+                                                <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
+                                                <div className="text-slate-400 text-sm">/ 100</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -417,7 +445,7 @@
                             {/* Stats Cards */}
                             <div className="lg:col-span-7 grid grid-cols-2 gap-4">
                                 <div className="stat-card rounded-xl p-5">
-                                    <p className="text-slate-400 text-sm mb-1">Mentions</p>
+                                    <p className="text-slate-400 text-sm mb-1">Mentions <InfoTooltip term="mentions" /></p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-bold">{metrics.mentions}</span>
                                         {metrics.mentions > 0 && <span className="text-emerald-400 text-sm">↑ 12%</span>}
@@ -428,7 +456,7 @@
                                 <div className="stat-card rounded-xl p-5">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-slate-400 text-sm mb-1">Competitor Ranking</p>
+                                            <p className="text-slate-400 text-sm mb-1">Competitor Ranking <InfoTooltip term="ranking" /></p>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-3xl font-bold">#{competitorList.findIndex(c => c.isYou) + 1 || '-'}</span>
                                                 {competitorList.findIndex(c => c.isYou) === 0 && <span className="text-emerald-400 text-sm">↑ 5%</span>}
@@ -440,7 +468,7 @@
                                 </div>
                                 
                                 <div className="stat-card rounded-xl p-5">
-                                    <p className="text-slate-400 text-sm mb-1">Citations</p>
+                                    <p className="text-slate-400 text-sm mb-1">Citations <InfoTooltip term="citations" /></p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-bold">{metrics.citations}</span>
                                         {metrics.citations > 0 && <span className="text-emerald-400 text-sm">↑ 8%</span>}
@@ -449,7 +477,7 @@
                                 </div>
                                 
                                 <div className="stat-card rounded-xl p-5">
-                                    <p className="text-slate-400 text-sm mb-1">Positive Sentiment</p>
+                                    <p className="text-slate-400 text-sm mb-1">Positive Sentiment <InfoTooltip term="sentiment" /></p>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-3xl font-bold">{metrics.sentiment}%</span>
                                         {metrics.sentiment > 50 && <span className="text-emerald-400 text-sm">↑ 3%</span>}
@@ -464,7 +492,7 @@
                             {/* Mentions */}
                             <div className="glass rounded-2xl p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-semibold">Mentions</h3>
+                                    <h3 className="text-lg font-semibold">Mentions <InfoTooltip term="mentions" /></h3>
                                     <span className="text-slate-400 text-sm">{metrics.mentions} / {metrics.totalQueries} queries</span>
                                 </div>
                                 <div className="space-y-3 max-h-80 overflow-y-auto">
@@ -490,7 +518,7 @@
                             {/* Competitor Ranking */}
                             <div className="glass rounded-2xl p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-semibold">Competitor Ranking</h3>
+                                    <h3 className="text-lg font-semibold">Competitor Ranking <InfoTooltip term="competitors" /></h3>
                                     <span className="text-slate-400 text-sm">Brands with most mentions</span>
                                 </div>
                                 <div className="space-y-3">
@@ -528,7 +556,7 @@
                         <div className="glass rounded-2xl p-6 mb-6">
                             <div className="flex justify-between items-center mb-4">
                                 <div>
-                                    <h3 className="text-lg font-semibold">Citations</h3>
+                                    <h3 className="text-lg font-semibold">Citations <InfoTooltip term="citations" /></h3>
                                     <p className="text-slate-400 text-sm">Sources where your brand was cited</p>
                                 </div>
                                 <div className="flex items-center gap-4">
@@ -579,7 +607,7 @@
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             {/* Brand Sentiment */}
                             <div className="glass rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold mb-1">Brand Sentiment</h3>
+                                <h3 className="text-lg font-semibold mb-1">Brand Sentiment <InfoTooltip term="sentiment" /></h3>
                                 <p className="text-slate-400 text-sm mb-4">{brand?.name || 'Your Brand'}</p>
                                 <div className="flex items-baseline gap-2 mb-4">
                                     <span className="text-5xl font-bold text-emerald-400">{metrics.sentiment}%</span>
