@@ -921,9 +921,20 @@ app.delete('/api/queries/:id', authenticateToken, requireAdmin, (req, res) => {
     if (!query) {
         return res.status(404).json({ error: 'Query not found' });
     }
-    db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
-    logActivity(req.user.id, 'query_deleted', { queryId: req.params.id, query_text: query.query_text });
-    res.json({ success: true });
+    
+    try {
+        // First delete any related query_results
+        db.prepare('DELETE FROM query_results WHERE query_id = ?').run(req.params.id);
+        // Then delete the query
+        db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
+        logActivity(req.user.id, 'query_deleted', { queryId: req.params.id, query_text: query.query_text });
+        res.json({ success: true });
+    } catch (err) {
+        // If delete fails, just mark as inactive instead
+        db.prepare('UPDATE queries SET is_active = 0 WHERE id = ?').run(req.params.id);
+        logActivity(req.user.id, 'query_deactivated', { queryId: req.params.id, query_text: query.query_text });
+        res.json({ success: true, deactivated: true });
+    }
 });
 
 // ============================================
