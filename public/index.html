@@ -202,6 +202,8 @@
             const [analyzing, setAnalyzing] = useState(false);
             const [apiStatus, setApiStatus] = useState({});
             const [page, setPage] = useState('dashboard');
+            const [historyData, setHistoryData] = useState(null);
+            const [expandedResponse, setExpandedResponse] = useState(null);
             
             useEffect(() => {
                 loadData();
@@ -210,6 +212,7 @@
             useEffect(() => {
                 if (selectedBrand) {
                     loadBrandAnalysis(selectedBrand);
+                    loadHistory(selectedBrand);
                 }
             }, [selectedBrand, activePlatform]);
             
@@ -236,6 +239,16 @@
                 } catch (err) {
                     console.error('Failed to load analysis:', err);
                     setAnalysisData(null);
+                }
+            };
+            
+            const loadHistory = async (brandId) => {
+                try {
+                    const data = await api.get(`/brands/${brandId}/history?days=30`);
+                    setHistoryData(data);
+                } catch (err) {
+                    console.error('Failed to load history:', err);
+                    setHistoryData(null);
                 }
             };
             
@@ -631,6 +644,173 @@
                                     {queries.length > 0 ? 'No citations found. Try running analysis with Perplexity for citation data.' : 'Run analysis to see citations'}
                                 </p>
                             )}
+                        </div>
+                        
+                        {/* Visibility Trends Over Time */}
+                        {historyData && historyData.trend && historyData.trend.length > 1 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">📈 Visibility Trends</h3>
+                                        <p className="text-slate-400 text-sm">Track your brand's AI visibility over time</p>
+                                    </div>
+                                    <span className="text-sm text-slate-400">Last 30 days • {historyData.totalRuns} analyses</span>
+                                </div>
+                                <div className="h-64 relative">
+                                    <div className="absolute inset-0 flex items-end justify-between gap-1">
+                                        {historyData.trend.map((d, i) => (
+                                            <div key={i} className="flex-1 flex flex-col items-center group">
+                                                <div className="w-full bg-slate-800 rounded-t relative" style={{height: `${Math.max(d.visibility, 5)}%`}}>
+                                                    <div 
+                                                        className="absolute bottom-0 w-full bg-gradient-to-t from-sky-500 to-sky-400 rounded-t transition-all"
+                                                        style={{height: `${d.mentionRate}%`}}
+                                                    ></div>
+                                                    <div className="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs whitespace-nowrap z-10">
+                                                        <div className="font-semibold">{new Date(d.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</div>
+                                                        <div>Visibility: {d.visibility}%</div>
+                                                        <div>Mentions: {d.mentionRate}%</div>
+                                                        <div>Sentiment: {d.sentiment}%</div>
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs text-slate-500 mt-1 rotate-45 origin-left">{new Date(d.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex justify-center gap-6 mt-4 text-sm">
+                                    <span className="flex items-center gap-2"><span className="w-3 h-3 bg-slate-800 rounded"></span> Visibility Score</span>
+                                    <span className="flex items-center gap-2"><span className="w-3 h-3 bg-sky-500 rounded"></span> Mention Rate</span>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* AI Conversation Analysis - Response Viewer */}
+                        {queries.length > 0 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">🤖 AI Conversation Analysis</h3>
+                                        <p className="text-slate-400 text-sm">Read actual AI responses to understand positioning</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {queries.slice(0, 10).map((q, i) => (
+                                        <div key={i} className="border border-slate-700 rounded-xl overflow-hidden">
+                                            <button 
+                                                onClick={() => setExpandedResponse(expandedResponse === i ? null : i)}
+                                                className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors text-left"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                        q.platform === 'chatgpt' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                        q.platform === 'claude' ? 'bg-orange-500/20 text-orange-400' :
+                                                        q.platform === 'gemini' ? 'bg-blue-500/20 text-blue-400' :
+                                                        q.platform === 'mistral' ? 'bg-purple-500/20 text-purple-400' :
+                                                        'bg-cyan-500/20 text-cyan-400'
+                                                    }`}>{q.platform}</span>
+                                                    <span className="font-medium">{q.query_text}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    {q.mentioned ? (
+                                                        <span className="text-emerald-400 text-sm flex items-center gap-1">
+                                                            ✓ Mentioned
+                                                            {q.sentiment_score >= 60 && <span className="text-xs">(Positive)</span>}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-500 text-sm">Not mentioned</span>
+                                                    )}
+                                                    <svg className={`w-5 h-5 transition-transform ${expandedResponse === i ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
+                                            </button>
+                                            {expandedResponse === i && q.response_text && (
+                                                <div className="px-4 pb-4 border-t border-slate-700">
+                                                    <div className="bg-slate-900/50 rounded-lg p-4 mt-3 max-h-64 overflow-y-auto">
+                                                        <p className="text-sm text-slate-300 whitespace-pre-wrap">{q.response_text}</p>
+                                                    </div>
+                                                    <div className="flex gap-4 mt-3 text-xs">
+                                                        <span className="text-slate-400">Sentiment: <span className={q.sentiment_score >= 60 ? 'text-emerald-400' : q.sentiment_score <= 40 ? 'text-red-400' : 'text-slate-300'}>{q.sentiment_score}%</span></span>
+                                                        {Object.keys(q.competitor_mentions || {}).length > 0 && (
+                                                            <span className="text-slate-400">
+                                                                Competitors mentioned: {Object.entries(q.competitor_mentions).map(([name, count]) => `${name} (${count})`).join(', ')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Competitor Benchmark Table */}
+                        {competitorList.length > 1 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">📊 Competitor Benchmark</h3>
+                                        <p className="text-slate-400 text-sm">See exactly where you stand against competitors</p>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="text-left text-xs text-slate-400 border-b border-slate-700">
+                                                <th className="pb-3 font-medium">Rank</th>
+                                                <th className="pb-3 font-medium">Brand</th>
+                                                <th className="pb-3 font-medium text-center">Mentions</th>
+                                                <th className="pb-3 font-medium text-center">Share of Voice</th>
+                                                <th className="pb-3 font-medium text-center">Visibility Score</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {competitorList.map((c, i) => {
+                                                const totalMentionsAll = competitorList.reduce((sum, comp) => sum + comp.mentions, 0);
+                                                const shareOfVoice = totalMentionsAll > 0 ? Math.round((c.mentions / totalMentionsAll) * 100) : 0;
+                                                const visScore = totalQueries > 0 ? Math.round((c.mentions / totalQueries) * 100) : 0;
+                                                
+                                                return (
+                                                    <tr key={i} className={`border-b border-slate-800 ${c.isYou ? 'bg-sky-500/10' : ''}`}>
+                                                        <td className="py-4">
+                                                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                                                i === 0 ? 'bg-amber-500/20 text-amber-400' :
+                                                                i === 1 ? 'bg-slate-400/20 text-slate-300' :
+                                                                i === 2 ? 'bg-orange-700/20 text-orange-500' :
+                                                                'bg-slate-700 text-slate-400'
+                                                            }`}>
+                                                                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`font-medium ${c.isYou ? 'text-sky-400' : ''}`}>{c.name}</span>
+                                                                {c.isYou && <span className="text-xs bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">You</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 text-center font-semibold">{c.mentions}</td>
+                                                        <td className="py-4">
+                                                            <div className="flex items-center gap-2 justify-center">
+                                                                <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                                    <div className={`h-full rounded-full ${c.isYou ? 'bg-sky-500' : 'bg-slate-500'}`} style={{width: `${shareOfVoice}%`}}></div>
+                                                                </div>
+                                                                <span className="text-sm w-12">{shareOfVoice}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 text-center">
+                                                            <span className={`text-lg font-bold ${visScore >= 50 ? 'text-emerald-400' : visScore >= 25 ? 'text-amber-400' : 'text-slate-400'}`}>
+                                                                {visScore}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                         </div>
                         
                         {/* Sentiment Comparison */}
