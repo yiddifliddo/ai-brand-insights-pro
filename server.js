@@ -2075,49 +2075,57 @@ app.post('/api/webhook/referral', (req, res) => {
 // Get crawler stats for dashboard
 app.get('/api/crawler-stats', authenticateToken, (req, res) => {
     const days = parseInt(req.query.days) || 30;
+    const domain = req.query.domain; // Filter by specific domain
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     
-    const totalCrawlers = db.prepare('SELECT COUNT(*) as count FROM crawler_visits WHERE visited_at >= ?').get(since);
-    const totalReferrals = db.prepare('SELECT COUNT(*) as count FROM referral_visits WHERE visited_at >= ?').get(since);
+    // Build WHERE clause based on domain filter
+    const domainFilter = domain ? ' AND site_domain LIKE ?' : '';
+    const domainParam = domain ? `%${domain}%` : null;
+    
+    const crawlerParams = domain ? [since, domainParam] : [since];
+    const referralParams = domain ? [since, domainParam] : [since];
+    
+    const totalCrawlers = db.prepare(`SELECT COUNT(*) as count FROM crawler_visits WHERE visited_at >= ?${domainFilter}`).get(...crawlerParams);
+    const totalReferrals = db.prepare(`SELECT COUNT(*) as count FROM referral_visits WHERE visited_at >= ?${domainFilter}`).get(...referralParams);
     
     const byCompany = db.prepare(`
         SELECT company, COUNT(*) as visits FROM crawler_visits 
-        WHERE visited_at >= ? GROUP BY company ORDER BY visits DESC
-    `).all(since);
+        WHERE visited_at >= ?${domainFilter} GROUP BY company ORDER BY visits DESC
+    `).all(...crawlerParams);
     
     const byType = db.prepare(`
         SELECT bot_type, COUNT(*) as visits FROM crawler_visits 
-        WHERE visited_at >= ? GROUP BY bot_type ORDER BY visits DESC
-    `).all(since);
+        WHERE visited_at >= ?${domainFilter} GROUP BY bot_type ORDER BY visits DESC
+    `).all(...crawlerParams);
     
     const dailyTrend = db.prepare(`
         SELECT DATE(visited_at) as date, COUNT(*) as visits FROM crawler_visits 
-        WHERE visited_at >= ? GROUP BY DATE(visited_at) ORDER BY date ASC
-    `).all(since);
+        WHERE visited_at >= ?${domainFilter} GROUP BY DATE(visited_at) ORDER BY date ASC
+    `).all(...crawlerParams);
     
     const referralsByPlatform = db.prepare(`
         SELECT platform_name, COUNT(*) as visits FROM referral_visits 
-        WHERE visited_at >= ? GROUP BY platform_name ORDER BY visits DESC
-    `).all(since);
+        WHERE visited_at >= ?${domainFilter} GROUP BY platform_name ORDER BY visits DESC
+    `).all(...referralParams);
     
     const topPages = db.prepare(`
         SELECT page_url, COUNT(*) as visits, GROUP_CONCAT(DISTINCT company) as companies
-        FROM crawler_visits WHERE visited_at >= ?
+        FROM crawler_visits WHERE visited_at >= ?${domainFilter}
         GROUP BY page_url ORDER BY visits DESC LIMIT 10
-    `).all(since);
+    `).all(...crawlerParams);
     
     // Breakdown by site domain
     const bySite = db.prepare(`
         SELECT site_domain, COUNT(*) as visits, GROUP_CONCAT(DISTINCT company) as companies
-        FROM crawler_visits WHERE visited_at >= ?
+        FROM crawler_visits WHERE visited_at >= ?${domainFilter}
         GROUP BY site_domain ORDER BY visits DESC
-    `).all(since);
+    `).all(...crawlerParams);
     
     const referralsBySite = db.prepare(`
         SELECT site_domain, COUNT(*) as visits, GROUP_CONCAT(DISTINCT platform_name) as platforms
-        FROM referral_visits WHERE visited_at >= ?
+        FROM referral_visits WHERE visited_at >= ?${domainFilter}
         GROUP BY site_domain ORDER BY visits DESC
-    `).all(since);
+    `).all(...referralParams);
     
     res.json({
         totalCrawlerVisits: totalCrawlers?.count || 0,
@@ -2128,7 +2136,8 @@ app.get('/api/crawler-stats', authenticateToken, (req, res) => {
         referralsBySite,
         dailyTrend,
         referralsByPlatform,
-        topPages
+        topPages,
+        filteredByDomain: domain || null
     });
 });
 
