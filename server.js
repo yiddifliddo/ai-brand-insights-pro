@@ -870,33 +870,46 @@ function getApiKey(platform) {
 // Query functions
 async function queryChatGPT(prompt) {
     const apiKey = getApiKey('openai');
-    if (!apiKey) return { error: 'OpenAI not configured', response: null };
+    if (!apiKey) {
+        console.log('❌ ChatGPT: No API key configured');
+        return { error: 'OpenAI not configured', response: null };
+    }
     
     try {
+        console.log('🔍 ChatGPT: Querying...');
         const { OpenAI } = require('openai');
         const openai = new OpenAI({ apiKey });
         const completion = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
+            model: "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }],
             max_tokens: 1000
         });
+        console.log('✅ ChatGPT: Got response');
         return { response: completion.choices[0].message.content };
     } catch (error) {
+        console.error('❌ ChatGPT Error:', error.message);
         return { error: error.message, response: null };
     }
 }
 
 async function queryGemini(prompt) {
     const apiKey = getApiKey('google');
-    if (!apiKey) return { error: 'Gemini not configured', response: null };
+    if (!apiKey) {
+        console.log('❌ Gemini: No API key configured');
+        return { error: 'Gemini not configured', response: null };
+    }
     
     try {
+        console.log('🔍 Gemini: Querying...');
         const { GoogleGenerativeAI } = require('@google/generative-ai');
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(prompt);
-        return { response: result.response.text() };
+        const text = result.response.text();
+        console.log('✅ Gemini: Got response');
+        return { response: text };
     } catch (error) {
+        console.error('❌ Gemini Error:', error.message);
         return { error: error.message, response: null };
     }
 }
