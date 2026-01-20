@@ -280,14 +280,6 @@
             const visibilityScore = analysisData?.summary?.overallVisibility || 0;
             const citationCount = analysisData?.summary?.citationCount || dbCitations.length;
             
-            const metrics = {
-                visibility: visibilityScore,
-                mentions: totalMentions,
-                totalQueries: totalQueries,
-                sentiment: avgSentiment,
-                citations: citationCount
-            };
-            
             // Build competitor ranking from actual data
             const brandMentions = totalMentions;
             const competitorList = [
@@ -298,6 +290,18 @@
                     isYou: false
                 }))
             ].sort((a, b) => b.mentions - a.mentions);
+            
+            // Calculate ranking position (1-based)
+            const rankingPosition = competitorList.findIndex(c => c.isYou) + 1;
+            
+            const metrics = {
+                visibility: visibilityScore,
+                mentions: totalMentions,
+                totalQueries: totalQueries,
+                sentiment: avgSentiment,
+                citations: citationCount,
+                ranking: rankingPosition
+            };
             
             // Get unique citations grouped by source
             const citationGroups = {};
@@ -330,6 +334,10 @@
 
             if (page === 'api-keys') {
                 return <APIKeysPage onBack={() => setPage('dashboard')} apiStatus={apiStatus} onUpdate={loadData} />;
+            }
+            
+            if (page === 'brands') {
+                return <BrandsPage onBack={() => setPage('dashboard')} brands={brands} onUpdate={loadData} />;
             }
 
             return (
@@ -411,6 +419,13 @@
                                     </svg>
                                 </button>
                                 
+                                {/* Brands/Competitors Management */}
+                                <button onClick={() => setPage('brands')} className="p-2 text-slate-400 hover:text-white transition-colors" title="Manage Brands & Competitors">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                </button>
+                                
                                 {/* Logout */}
                                 <button onClick={onLogout} className="text-slate-400 hover:text-white text-sm">Sign out</button>
                             </div>
@@ -433,8 +448,8 @@
                                 <div className="flex items-center justify-center">
                                     <div style={{width: '280px', height: '280px'}}>
                                         <RadarChart data={{
-                                            mentions: Math.min(100, metrics.mentions * 10),
-                                            ranking: metrics.ranking ? (100 - (metrics.ranking - 1) * 20) : 0,
+                                            mentions: Math.min(100, (metrics.mentions / Math.max(1, metrics.totalQueries)) * 100),
+                                            ranking: competitorList.length > 1 ? Math.round(100 - ((metrics.ranking - 1) / (competitorList.length - 1)) * 100) : 100,
                                             citations: Math.min(100, metrics.citations * 5),
                                             sentiment: metrics.sentiment
                                         }} />
@@ -787,6 +802,153 @@
                                 <p><span className="text-slate-400">Google AI:</span> <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-sky-400 hover:underline">aistudio.google.com/app/apikey</a></p>
                                 <p><span className="text-slate-400">Anthropic:</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-sky-400 hover:underline">console.anthropic.com/settings/keys</a></p>
                                 <p><span className="text-slate-400">Perplexity:</span> <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-sky-400 hover:underline">perplexity.ai/settings/api</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Brands Management Page
+        const BrandsPage = ({ onBack, brands, onUpdate }) => {
+            const [selectedBrand, setSelectedBrand] = useState(null);
+            const [brandDetails, setBrandDetails] = useState(null);
+            const [newCompetitor, setNewCompetitor] = useState('');
+            const [saving, setSaving] = useState(false);
+            
+            useEffect(() => {
+                if (brands.length > 0 && !selectedBrand) {
+                    setSelectedBrand(brands[0].id);
+                }
+            }, [brands]);
+            
+            useEffect(() => {
+                if (selectedBrand) {
+                    loadBrandDetails(selectedBrand);
+                }
+            }, [selectedBrand]);
+            
+            const loadBrandDetails = async (brandId) => {
+                try {
+                    const data = await api.get(`/brands/${brandId}`);
+                    setBrandDetails(data);
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+            
+            const addCompetitor = async () => {
+                if (!newCompetitor.trim() || !selectedBrand) return;
+                setSaving(true);
+                try {
+                    await api.post(`/brands/${selectedBrand}/competitors`, { name: newCompetitor.trim() });
+                    setNewCompetitor('');
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to add competitor: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const deleteCompetitor = async (competitorId) => {
+                if (!confirm('Remove this competitor?')) return;
+                try {
+                    await api.delete(`/competitors/${competitorId}`);
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to remove competitor: ' + err.message);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen p-8">
+                    <div className="max-w-4xl mx-auto">
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
+                            ← Back to Dashboard
+                        </button>
+                        
+                        <h2 className="text-2xl font-bold mb-6">Manage Brands & Competitors</h2>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Brand List */}
+                            <div className="glass rounded-2xl p-6">
+                                <h3 className="font-semibold mb-4">Brands</h3>
+                                <div className="space-y-2">
+                                    {brands.map(b => (
+                                        <button
+                                            key={b.id}
+                                            onClick={() => setSelectedBrand(b.id)}
+                                            className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                                                selectedBrand === b.id 
+                                                    ? 'bg-sky-500/20 border border-sky-500/50' 
+                                                    : 'bg-slate-800/50 hover:bg-slate-700/50'
+                                            }`}
+                                        >
+                                            {b.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Competitors for Selected Brand */}
+                            <div className="lg:col-span-2 glass rounded-2xl p-6">
+                                <h3 className="font-semibold mb-4">
+                                    Competitors for {brandDetails?.name || 'Select a brand'}
+                                </h3>
+                                
+                                {brandDetails && (
+                                    <>
+                                        <div className="mb-6">
+                                            <div className="flex gap-3">
+                                                <input
+                                                    type="text"
+                                                    value={newCompetitor}
+                                                    onChange={e => setNewCompetitor(e.target.value)}
+                                                    onKeyPress={e => e.key === 'Enter' && addCompetitor()}
+                                                    placeholder="Enter competitor name (e.g., Thermo Fisher Scientific)"
+                                                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
+                                                />
+                                                <button
+                                                    onClick={addCompetitor}
+                                                    disabled={saving || !newCompetitor.trim()}
+                                                    className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50"
+                                                >
+                                                    {saving ? 'Adding...' : 'Add'}
+                                                </button>
+                                            </div>
+                                            <p className="text-slate-500 text-sm mt-2">
+                                                Add competitor brand names. They'll be tracked when you run analysis.
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                            {brandDetails.competitors?.length > 0 ? (
+                                                brandDetails.competitors.map(c => (
+                                                    <div key={c.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
+                                                        <div>
+                                                            <p className="font-medium">{c.name}</p>
+                                                            {c.domain && <p className="text-sm text-slate-400">{c.domain}</p>}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => deleteCompetitor(c.id)}
+                                                            className="text-red-400 hover:text-red-300 p-2"
+                                                            title="Remove competitor"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-slate-500 text-center py-8">
+                                                    No competitors added yet. Add competitor names above to track them in your analysis.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
