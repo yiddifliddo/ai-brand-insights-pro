@@ -1226,7 +1226,7 @@ app.get('/api/brands/:id/latest-analysis', authenticateToken, (req, res) => {
     `).all(...runIds);
     
     // Calculate summary
-    const totalMentions = results.filter(r => r.mentioned).length;
+    const totalMentions = results.filter(r => r.brand_mentioned).length;
     const avgSentiment = results.length > 0 
         ? Math.round(results.reduce((sum, r) => sum + (r.sentiment_score || 50), 0) / results.length)
         : 0;
@@ -1258,7 +1258,7 @@ app.get('/api/brands/:id/latest-analysis', authenticateToken, (req, res) => {
         results: results.map(r => ({
             ...r,
             query_text: r.query_text,
-            mentioned: !!r.mentioned,
+            mentioned: !!r.brand_mentioned,
             sentiment_score: r.sentiment_score || 50,
             positive_keywords: r.positive_keywords ? JSON.parse(r.positive_keywords) : [],
             negative_keywords: r.negative_keywords ? JSON.parse(r.negative_keywords) : [],
