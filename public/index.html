@@ -204,9 +204,11 @@
             const [page, setPage] = useState('dashboard');
             const [historyData, setHistoryData] = useState(null);
             const [expandedResponse, setExpandedResponse] = useState(null);
+            const [crawlerStats, setCrawlerStats] = useState(null);
             
             useEffect(() => {
                 loadData();
+                loadCrawlerStats();
             }, []);
             
             useEffect(() => {
@@ -215,6 +217,15 @@
                     loadHistory(selectedBrand);
                 }
             }, [selectedBrand, activePlatform]);
+            
+            const loadCrawlerStats = async () => {
+                try {
+                    const data = await api.get('/crawler-stats?days=30');
+                    setCrawlerStats(data);
+                } catch (err) {
+                    console.error('Failed to load crawler stats:', err);
+                }
+            };
             
             const loadData = async () => {
                 try {
@@ -877,6 +888,103 @@
                                             Your brand is not being mentioned for "{visibilityGaps[0] || 'cryogenic storage solutions'}" and "{visibilityGaps[1] || 'affordable lab freezers'}" queries. Consider creating content targeting these terms to improve AI visibility.
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Website Crawler Activity (from WordPress) */}
+                        {crawlerStats && (crawlerStats.totalCrawlerVisits > 0 || crawlerStats.totalReferralVisits > 0) && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">🌐 Website AI Crawler Activity</h3>
+                                        <p className="text-slate-400 text-sm">AI bots visiting your websites (last 30 days)</p>
+                                    </div>
+                                    <button onClick={() => setPage('sites')} className="text-sky-400 hover:text-sky-300 text-sm">
+                                        Manage Sites →
+                                    </button>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-sky-400">{crawlerStats.totalCrawlerVisits.toLocaleString()}</div>
+                                        <div className="text-slate-400 text-sm">Bot Visits</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-emerald-400">{crawlerStats.totalReferralVisits.toLocaleString()}</div>
+                                        <div className="text-slate-400 text-sm">Human Referrals</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-amber-400">{crawlerStats.byCompany?.length || 0}</div>
+                                        <div className="text-slate-400 text-sm">AI Companies</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-purple-400">{crawlerStats.topPages?.length || 0}</div>
+                                        <div className="text-slate-400 text-sm">Pages Crawled</div>
+                                    </div>
+                                </div>
+                                
+                                {crawlerStats.byCompany && crawlerStats.byCompany.length > 0 && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        <div>
+                                            <h4 className="text-sm font-medium text-slate-400 mb-3">Crawlers by Company</h4>
+                                            <div className="space-y-2">
+                                                {crawlerStats.byCompany.slice(0, 5).map((c, i) => (
+                                                    <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                                                        <span className="flex items-center gap-2">
+                                                            <span>{c.company === 'OpenAI' ? '🤖' : c.company === 'Anthropic' ? '🧠' : c.company === 'Google' ? '✨' : c.company === 'Perplexity' ? '🔍' : '🌐'}</span>
+                                                            {c.company}
+                                                        </span>
+                                                        <span className="font-semibold">{c.visits.toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
+                                        {crawlerStats.topPages && crawlerStats.topPages.length > 0 && (
+                                            <div>
+                                                <h4 className="text-sm font-medium text-slate-400 mb-3">Most Crawled Pages</h4>
+                                                <div className="space-y-2">
+                                                    {crawlerStats.topPages.slice(0, 5).map((p, i) => (
+                                                        <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                                                            <span className="text-sm truncate max-w-xs" title={p.page_url}>
+                                                                {p.page_url?.replace(/^https?:\/\/[^\/]+/, '') || '/'}
+                                                            </span>
+                                                            <span className="font-semibold text-sky-400">{p.visits}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                
+                                {crawlerStats.referralsByPlatform && crawlerStats.referralsByPlatform.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-slate-700">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Human Traffic from AI Platforms</h4>
+                                        <div className="flex flex-wrap gap-3">
+                                            {crawlerStats.referralsByPlatform.map((r, i) => (
+                                                <div key={i} className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-full">
+                                                    <span>{r.platform_name}</span>
+                                                    <span className="font-bold">{r.visits}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* No crawler data - prompt to set up */}
+                        {crawlerStats && crawlerStats.totalCrawlerVisits === 0 && crawlerStats.totalReferralVisits === 0 && (
+                            <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
+                                <div className="text-center py-4">
+                                    <span className="text-4xl mb-4 block">🌐</span>
+                                    <h3 className="text-lg font-semibold mb-2">Track AI Crawlers on Your Websites</h3>
+                                    <p className="text-slate-400 mb-4">Install the WordPress plugin to see which AI bots are visiting your sites.</p>
+                                    <button onClick={() => setPage('sites')} className="btn-primary px-6 py-2 rounded-lg">
+                                        Set Up Website Tracking →
+                                    </button>
                                 </div>
                             </div>
                         )}
