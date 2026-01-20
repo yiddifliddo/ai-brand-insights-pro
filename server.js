@@ -957,8 +957,8 @@ async function queryGemini(prompt) {
         return { error: 'Gemini not configured', response: null };
     }
     
-    // List of models to try in order (newest to oldest)
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+    // List of models to try in order (from Google AI Studio dashboard)
+    const models = ['gemini-2.5-flash', 'gemini-3-flash', 'gemini-2.5-flash-lite'];
     
     for (const model of models) {
         try {
