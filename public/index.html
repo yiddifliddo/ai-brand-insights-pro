@@ -527,16 +527,21 @@
                             {/* Radar Chart Card */}
                             <div className="lg:col-span-5 glass rounded-2xl p-6">
                                 <div className="flex items-start justify-between mb-4">
-                                    <h3 className="text-lg font-semibold">AI Visibility Index <InfoTooltip term="visibility" /></h3>
+                                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                                        AI Visibility Index <InfoTooltip term="visibility" />
+                                        <span className="text-xs bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">Latest</span>
+                                    </h3>
                                     <div className="text-right">
-                                        <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
+                                        <div className="text-4xl font-bold text-sky-400">
+                                            {queries.length > 0 ? Math.round((queries.filter(q => q.mentioned).length / queries.length) * 100) : 0}
+                                        </div>
                                         <div className="text-slate-400 text-sm">/ 100</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-center">
                                     <div style={{width: '280px', height: '280px'}}>
                                         <RadarChart data={{
-                                            mentions: Math.min(100, (metrics.mentions / Math.max(1, metrics.totalQueries)) * 100),
+                                            mentions: queries.length > 0 ? Math.round((queries.filter(q => q.mentioned).length / queries.length) * 100) : 0,
                                             ranking: competitorList.length > 1 ? Math.round(100 - ((metrics.ranking - 1) / (competitorList.length - 1)) * 100) : 100,
                                             citations: Math.min(100, metrics.citations * 5),
                                             sentiment: metrics.sentiment
