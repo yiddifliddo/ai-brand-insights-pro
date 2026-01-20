@@ -114,6 +114,7 @@ function initDatabase() {
             sentiment_score REAL,
             positive_keywords TEXT,
             negative_keywords TEXT,
+            competitor_mentions TEXT,
             citations TEXT,
             FOREIGN KEY (run_id) REFERENCES analysis_runs(id),
             FOREIGN KEY (query_id) REFERENCES queries(id)
@@ -167,6 +168,13 @@ function initDatabase() {
             UNIQUE(user_id, brand_id)
         );
     `);
+    
+    // Migration: Add competitor_mentions column if it doesn't exist
+    try {
+        db.exec(`ALTER TABLE query_results ADD COLUMN competitor_mentions TEXT`);
+    } catch (e) {
+        // Column already exists, ignore
+    }
     
     // Create default admin if no users exist
     const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
@@ -539,10 +547,10 @@ async function runScheduledAnalysis() {
                         }
                         
                         db.prepare(`
-                            INSERT INTO query_results (run_id, query_id, platform, response_text, brand_mentioned, sentiment_score, positive_keywords, negative_keywords, citations)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO query_results (run_id, query_id, platform, response_text, brand_mentioned, sentiment_score, positive_keywords, negative_keywords, competitor_mentions, citations)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         `).run(runId, query.id, platform, response.response.substring(0, 5000), analysis.mentioned ? 1 : 0, analysis.sentimentScore,
-                            JSON.stringify(analysis.positiveKeywords), JSON.stringify(analysis.negativeKeywords), JSON.stringify(citationsList));
+                            JSON.stringify(analysis.positiveKeywords), JSON.stringify(analysis.negativeKeywords), JSON.stringify(analysis.competitorMentions), JSON.stringify(citationsList));
                         
                         // Small delay between queries
                         await new Promise(resolve => setTimeout(resolve, 300));
@@ -1090,10 +1098,10 @@ app.post('/api/brands/:id/analyze', authenticateToken, async (req, res) => {
             }).filter(Boolean);
             
             db.prepare(`
-                INSERT INTO query_results (run_id, query_id, platform, response_text, brand_mentioned, sentiment_score, positive_keywords, negative_keywords, citations)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO query_results (run_id, query_id, platform, response_text, brand_mentioned, sentiment_score, positive_keywords, negative_keywords, competitor_mentions, citations)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(runId, query.id, platform, response.response, analysis.mentioned ? 1 : 0, analysis.sentimentScore,
-                JSON.stringify(analysis.positiveKeywords), JSON.stringify(analysis.negativeKeywords), JSON.stringify(citations));
+                JSON.stringify(analysis.positiveKeywords), JSON.stringify(analysis.negativeKeywords), JSON.stringify(analysis.competitorMentions), JSON.stringify(citations));
             
             citations.forEach(c => {
                 db.prepare('INSERT INTO citations (run_id, url, domain, category) VALUES (?, ?, ?, ?)').run(runId, c.url, c.domain, c.category);
