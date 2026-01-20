@@ -867,6 +867,24 @@ app.get('/api/brands/:id', authenticateToken, (req, res) => {
     res.json({ ...brand, competitors, queries });
 });
 
+// Update brand name/domain
+app.put('/api/brands/:id', authenticateToken, requireAdmin, (req, res) => {
+    const { name, domain } = req.body;
+    const brand = db.prepare('SELECT * FROM brands WHERE id = ?').get(req.params.id);
+    if (!brand) {
+        return res.status(404).json({ error: 'Brand not found' });
+    }
+    
+    db.prepare('UPDATE brands SET name = ?, domain = ? WHERE id = ?').run(
+        name || brand.name,
+        domain || brand.domain,
+        req.params.id
+    );
+    
+    logActivity(req.user.id, 'brand_updated', { brandId: req.params.id, name });
+    res.json({ success: true, name, domain });
+});
+
 app.post('/api/brands', authenticateToken, requireAdmin, (req, res) => {
     const { name, domain, keywords } = req.body;
     const result = db.prepare('INSERT INTO brands (name, domain, keywords) VALUES (?, ?, ?)').run(
@@ -2145,6 +2163,23 @@ app.get('/api/crawler-stats', authenticateToken, (req, res) => {
 app.get('/api/sites', authenticateToken, (req, res) => {
     const sites = db.prepare('SELECT id, domain, created_at FROM sites WHERE user_id = ?').all(req.user.id);
     res.json(sites);
+});
+
+// Delete a registered site
+app.delete('/api/sites/:id', authenticateToken, (req, res) => {
+    const site = db.prepare('SELECT * FROM sites WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    if (!site) {
+        return res.status(404).json({ error: 'Site not found' });
+    }
+    
+    // Delete crawler data for this site
+    db.prepare('DELETE FROM crawler_visits WHERE site_domain LIKE ?').run(`%${site.domain}%`);
+    db.prepare('DELETE FROM referral_visits WHERE site_domain LIKE ?').run(`%${site.domain}%`);
+    
+    // Delete the site
+    db.prepare('DELETE FROM sites WHERE id = ?').run(req.params.id);
+    
+    res.json({ success: true });
 });
 
 // Health check
