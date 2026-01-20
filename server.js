@@ -271,16 +271,16 @@ function seedBrands() {
             ]
         },
         {
-            name: 'LabRepCo',
+            name: 'LabRepProd',
             domain: 'labresprod.com',
             keywords: 'laboratory equipment, lab supplies, scientific instruments, laboratory refrigerators',
             queries: [
-                { text: 'What is LabRepCo?', category: 'brand' },
-                { text: 'LabRepCo reviews', category: 'brand' },
+                { text: 'What is LabRepProd?', category: 'brand' },
+                { text: 'LabRepProd reviews', category: 'brand' },
                 { text: 'Laboratory equipment suppliers', category: 'product' },
                 { text: 'Lab refrigerator distributors', category: 'product' },
                 { text: 'Scientific equipment sales', category: 'product' },
-                { text: 'LabRepCo vs Fisher Scientific', category: 'comparison' },
+                { text: 'LabRepProd vs Fisher Scientific', category: 'comparison' },
                 { text: 'Where to buy lab equipment', category: 'use_case' },
                 { text: 'Laboratory equipment service and repair', category: 'use_case' }
             ],
