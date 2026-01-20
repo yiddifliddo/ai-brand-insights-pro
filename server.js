@@ -853,9 +853,14 @@ app.post('/api/brands', authenticateToken, requireAdmin, (req, res) => {
 app.post('/api/brands/:id/competitors', authenticateToken, requireAdmin, (req, res) => {
     const { name, domain } = req.body;
     const result = db.prepare('INSERT INTO competitors (brand_id, name, domain) VALUES (?, ?, ?)').run(
-        req.params.id, name, domain
+        req.params.id, name, domain || ''
     );
     res.json({ id: result.lastInsertRowid, name, domain });
+});
+
+app.delete('/api/competitors/:id', authenticateToken, requireAdmin, (req, res) => {
+    db.prepare('DELETE FROM competitors WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
 });
 
 app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) => {
