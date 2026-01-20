@@ -1390,6 +1390,72 @@ app.get('/api/runs/:id', authenticateToken, (req, res) => {
     res.json({ run, results, citations });
 });
 
+// Get visibility history/trends for a brand
+app.get('/api/brands/:id/history', authenticateToken, (req, res) => {
+    const brandId = req.params.id;
+    const days = parseInt(req.query.days) || 30;
+    
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Get all runs with visibility scores over time
+    const runs = db.prepare(`
+        SELECT 
+            ar.id,
+            ar.platform,
+            ar.visibility_score,
+            ar.run_date,
+            ar.status,
+            (SELECT COUNT(*) FROM query_results qr WHERE qr.run_id = ar.id AND qr.brand_mentioned = 1) as mentions,
+            (SELECT COUNT(*) FROM query_results qr WHERE qr.run_id = ar.id) as total_queries,
+            (SELECT AVG(qr.sentiment_score) FROM query_results qr WHERE qr.run_id = ar.id) as avg_sentiment
+        FROM analysis_runs ar
+        WHERE ar.brand_id = ? AND ar.status = 'completed' AND ar.run_date >= ?
+        ORDER BY ar.run_date ASC
+    `).all(brandId, since);
+    
+    // Group by date for daily averages
+    const dailyData = {};
+    runs.forEach(run => {
+        const date = run.run_date.split('T')[0];
+        if (!dailyData[date]) {
+            dailyData[date] = { visibility: [], sentiment: [], mentions: 0, total: 0 };
+        }
+        dailyData[date].visibility.push(run.visibility_score || 0);
+        dailyData[date].sentiment.push(run.avg_sentiment || 50);
+        dailyData[date].mentions += run.mentions || 0;
+        dailyData[date].total += run.total_queries || 0;
+    });
+    
+    const trend = Object.entries(dailyData).map(([date, data]) => ({
+        date,
+        visibility: Math.round(data.visibility.reduce((a, b) => a + b, 0) / data.visibility.length),
+        sentiment: Math.round(data.sentiment.reduce((a, b) => a + b, 0) / data.sentiment.length),
+        mentions: data.mentions,
+        totalQueries: data.total,
+        mentionRate: data.total > 0 ? Math.round((data.mentions / data.total) * 100) : 0
+    }));
+    
+    // Platform breakdown over time
+    const platformData = {};
+    runs.forEach(run => {
+        if (!platformData[run.platform]) {
+            platformData[run.platform] = [];
+        }
+        platformData[run.platform].push({
+            date: run.run_date,
+            visibility: run.visibility_score || 0,
+            mentions: run.mentions || 0,
+            total: run.total_queries || 0
+        });
+    });
+    
+    res.json({
+        trend,
+        platformData,
+        totalRuns: runs.length
+    });
+});
+
 // Auto-detect competitors for a brand
 app.post('/api/brands/:id/detect-competitors', authenticateToken, async (req, res) => {
     const brandId = req.params.id;
