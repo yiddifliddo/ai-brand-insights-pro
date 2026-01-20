@@ -1011,7 +1011,20 @@ function analyzeResponse(response, brandName, competitors = []) {
     const lowerResponse = response.toLowerCase();
     const mentioned = lowerResponse.includes(brandName.toLowerCase());
     const result = sentiment.analyze(response);
-    const sentimentScore = Math.round(((result.comparative + 5) / 10) * 100);
+    
+    // Better sentiment calculation based on positive/negative word ratio
+    const positiveCount = result.positive.length;
+    const negativeCount = result.negative.length;
+    const totalWords = positiveCount + negativeCount;
+    
+    let sentimentScore;
+    if (totalWords === 0) {
+        sentimentScore = 50; // Neutral if no sentiment words found
+    } else {
+        // Calculate percentage of positive words, then scale to 30-100 range
+        const positiveRatio = positiveCount / totalWords;
+        sentimentScore = Math.round(30 + (positiveRatio * 70)); // Range: 30-100
+    }
     
     const competitorMentions = {};
     competitors.forEach(comp => {
