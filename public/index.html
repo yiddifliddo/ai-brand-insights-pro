@@ -1465,6 +1465,17 @@
                 }
             };
             
+            const deleteSite = async (siteId) => {
+                if (!confirm('Delete this site? This will remove all crawler data for this site.')) return;
+                try {
+                    await api.delete(`/sites/${siteId}`);
+                    await loadSites();
+                    await loadCrawlerStats();
+                } catch (err) {
+                    alert('Failed to delete site: ' + err.message);
+                }
+            };
+            
             return (
                 <div className="min-h-screen p-8">
                     <div className="max-w-4xl mx-auto">
@@ -1561,7 +1572,16 @@
                                                 <p className="font-medium">{s.domain}</p>
                                                 <p className="text-sm text-slate-400">Registered {new Date(s.created_at).toLocaleDateString()}</p>
                                             </div>
-                                            <span className="text-emerald-400 text-sm">Connected</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-emerald-400 text-sm">Connected</span>
+                                                <button 
+                                                    onClick={() => deleteSite(s.id)}
+                                                    className="text-red-400 hover:text-red-300 p-1"
+                                                    title="Delete site"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
