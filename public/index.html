@@ -58,11 +58,11 @@
         const glossary = {
             visibility: "How often your brand appears when AI platforms answer relevant questions. A higher score means AI is more likely to mention your brand.",
             sentiment: "Whether AI talks about your brand positively or negatively. Positive sentiment means AI recommends or praises your brand.",
-            mentions: "The number of times your brand name appears in AI responses across all queries tested.",
+            mentions: "The number of times your brand name appears in AI responses. 'Latest run' shows the most recent analysis only.",
             citations: "Links and sources that AI platforms reference when mentioning your brand. Shows where AI gets its information about you.",
             queries: "Questions asked to AI platforms to test if your brand appears. Examples: 'Best laboratory freezers', 'What is American Biotech Supply?'",
-            competitors: "Rival brands in your market. The app tracks how often competitors appear vs. your brand to show competitive positioning.",
-            ranking: "Your position compared to competitors based on how often each brand is mentioned by AI platforms."
+            competitors: "Rival brands in your market. 'All-time' data is aggregated across all analysis runs to show overall competitive positioning.",
+            ranking: "Your position compared to competitors based on total mentions across all analysis runs (all-time aggregated data)."
         };
         
         // Info Tooltip Component
@@ -548,18 +548,24 @@
                             {/* Stats Cards */}
                             <div className="lg:col-span-7 grid grid-cols-2 gap-4">
                                 <div className="stat-card rounded-xl p-5">
-                                    <p className="text-slate-400 text-sm mb-1">Mentions <InfoTooltip term="mentions" /></p>
+                                    <p className="text-slate-400 text-sm mb-1 flex items-center gap-2">
+                                        Mentions <InfoTooltip term="mentions" />
+                                        <span className="text-xs bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">Latest</span>
+                                    </p>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-bold">{metrics.mentions}</span>
-                                        {metrics.mentions > 0 && <span className="text-emerald-400 text-sm">↑ 12%</span>}
+                                        <span className="text-3xl font-bold">{queries.filter(q => q.mentioned).length}</span>
+                                        {queries.filter(q => q.mentioned).length > 0 && <span className="text-emerald-400 text-sm">↑ 12%</span>}
                                     </div>
-                                    <p className="text-slate-500 text-xs mt-1">{metrics.totalQueries} queries total</p>
+                                    <p className="text-slate-500 text-xs mt-1">{queries.length} queries total</p>
                                 </div>
                                 
                                 <div className="stat-card rounded-xl p-5">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-slate-400 text-sm mb-1">Competitor Ranking <InfoTooltip term="ranking" /></p>
+                                            <p className="text-slate-400 text-sm mb-1 flex items-center gap-2">
+                                                Competitor Ranking <InfoTooltip term="ranking" />
+                                                <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">All-time</span>
+                                            </p>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-3xl font-bold">#{competitorList.findIndex(c => c.isYou) + 1 || '-'}</span>
                                                 {competitorList.findIndex(c => c.isYou) === 0 && <span className="text-emerald-400 text-sm">↑ 5%</span>}
@@ -595,8 +601,11 @@
                             {/* Mentions */}
                             <div className="glass rounded-2xl p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-semibold">Mentions <InfoTooltip term="mentions" /></h3>
-                                    <span className="text-slate-400 text-sm">{metrics.mentions} / {metrics.totalQueries} queries</span>
+                                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                                        Mentions <InfoTooltip term="mentions" />
+                                        <span className="text-xs bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">Latest run</span>
+                                    </h3>
+                                    <span className="text-slate-400 text-sm">{queries.filter(q => q.mentioned).length} / {queries.length} queries</span>
                                 </div>
                                 <div className="space-y-3 max-h-80 overflow-y-auto">
                                     {queries.map((q, i) => (
@@ -621,8 +630,11 @@
                             {/* Competitor Ranking */}
                             <div className="glass rounded-2xl p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-semibold">Competitor Ranking <InfoTooltip term="competitors" /></h3>
-                                    <span className="text-slate-400 text-sm">Brands with most mentions</span>
+                                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                                        Competitor Ranking <InfoTooltip term="competitors" />
+                                        <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">All-time</span>
+                                    </h3>
+                                    <span className="text-slate-400 text-sm">Total mentions across all runs</span>
                                 </div>
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-12 text-xs text-slate-400 px-3 pb-2 border-b border-slate-700">
@@ -643,8 +655,8 @@
                                                 <span className={c.isYou ? 'text-cyan-400 font-medium' : ''}>{c.name}</span>
                                                 {c.isYou && <span className="you-badge px-2 py-0.5 rounded text-xs font-medium">You</span>}
                                             </div>
-                                            <div className="col-span-3 text-right text-slate-400">
-                                                {c.mentions} / {metrics.totalQueries || 8}
+                                            <div className="col-span-3 text-right font-semibold">
+                                                {c.mentions}
                                             </div>
                                         </div>
                                     ))}
@@ -812,8 +824,11 @@
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="flex justify-between items-center mb-4">
                                     <div>
-                                        <h3 className="text-lg font-semibold">📊 Competitor Benchmark</h3>
-                                        <p className="text-slate-400 text-sm">See exactly where you stand against competitors</p>
+                                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                                            📊 Competitor Benchmark
+                                            <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">All-time</span>
+                                        </h3>
+                                        <p className="text-slate-400 text-sm">Aggregated data across all analysis runs</p>
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -830,8 +845,10 @@
                                         <tbody>
                                             {competitorList.map((c, i) => {
                                                 const totalMentionsAll = competitorList.reduce((sum, comp) => sum + comp.mentions, 0);
+                                                const maxMentions = Math.max(...competitorList.map(comp => comp.mentions), 1);
                                                 const shareOfVoice = totalMentionsAll > 0 ? Math.round((c.mentions / totalMentionsAll) * 100) : 0;
-                                                const visScore = totalQueries > 0 ? Math.round((c.mentions / totalQueries) * 100) : 0;
+                                                // Visibility score: relative to top performer (top = 100)
+                                                const visScore = Math.round((c.mentions / maxMentions) * 100);
                                                 
                                                 return (
                                                     <tr key={i} className={`border-b border-slate-800 ${c.isYou ? 'bg-sky-500/10' : ''}`}>
