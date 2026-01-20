@@ -423,21 +423,21 @@
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
                             {/* Radar Chart Card */}
                             <div className="lg:col-span-5 glass rounded-2xl p-6">
-                                <h3 className="text-lg font-semibold mb-4">AI Visibility Index <InfoTooltip term="visibility" /></h3>
+                                <div className="flex items-start justify-between mb-4">
+                                    <h3 className="text-lg font-semibold">AI Visibility Index <InfoTooltip term="visibility" /></h3>
+                                    <div className="text-right">
+                                        <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
+                                        <div className="text-slate-400 text-sm">/ 100</div>
+                                    </div>
+                                </div>
                                 <div className="flex items-center justify-center">
-                                    <div className="relative" style={{width: '320px', height: '320px'}}>
+                                    <div style={{width: '280px', height: '280px'}}>
                                         <RadarChart data={{
                                             mentions: Math.min(100, metrics.mentions * 10),
                                             ranking: metrics.ranking ? (100 - (metrics.ranking - 1) * 20) : 0,
                                             citations: Math.min(100, metrics.citations * 5),
                                             sentiment: metrics.sentiment
                                         }} />
-                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                            <div className="text-center">
-                                                <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
-                                                <div className="text-slate-400 text-sm">/ 100</div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
