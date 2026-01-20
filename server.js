@@ -2106,11 +2106,26 @@ app.get('/api/crawler-stats', authenticateToken, (req, res) => {
         GROUP BY page_url ORDER BY visits DESC LIMIT 10
     `).all(since);
     
+    // Breakdown by site domain
+    const bySite = db.prepare(`
+        SELECT site_domain, COUNT(*) as visits, GROUP_CONCAT(DISTINCT company) as companies
+        FROM crawler_visits WHERE visited_at >= ?
+        GROUP BY site_domain ORDER BY visits DESC
+    `).all(since);
+    
+    const referralsBySite = db.prepare(`
+        SELECT site_domain, COUNT(*) as visits, GROUP_CONCAT(DISTINCT platform_name) as platforms
+        FROM referral_visits WHERE visited_at >= ?
+        GROUP BY site_domain ORDER BY visits DESC
+    `).all(since);
+    
     res.json({
         totalCrawlerVisits: totalCrawlers?.count || 0,
         totalReferralVisits: totalReferrals?.count || 0,
         byCompany,
         byType,
+        bySite,
+        referralsBySite,
         dailyTrend,
         referralsByPlatform,
         topPages
