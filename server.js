@@ -1165,6 +1165,117 @@ app.get('/api/brands/:id/history', authenticateToken, (req, res) => {
     res.json(runs);
 });
 
+// Get latest analysis for dashboard
+app.get('/api/brands/:id/latest-analysis', authenticateToken, (req, res) => {
+    const brandId = req.params.id;
+    const { platform } = req.query;
+    
+    // Get the brand info
+    const brand = db.prepare('SELECT * FROM brands WHERE id = ?').get(brandId);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    
+    // Get competitors
+    const competitors = db.prepare('SELECT * FROM competitors WHERE brand_id = ?').all(brandId);
+    
+    // Get queries
+    const queries = db.prepare('SELECT * FROM queries WHERE brand_id = ?').all(brandId);
+    
+    // Get latest runs (one per platform or filtered)
+    let runsQuery = `
+        SELECT ar.*, u.name as run_by_name 
+        FROM analysis_runs ar
+        LEFT JOIN users u ON ar.run_by = u.id
+        WHERE ar.brand_id = ? AND ar.status = 'completed'
+    `;
+    const params = [brandId];
+    
+    if (platform && platform !== 'all') {
+        runsQuery += ' AND ar.platform = ?';
+        params.push(platform);
+    }
+    
+    runsQuery += ' ORDER BY ar.run_date DESC LIMIT 10';
+    const runs = db.prepare(runsQuery).all(...params);
+    
+    if (runs.length === 0) {
+        return res.json({
+            brand,
+            competitors,
+            queries,
+            results: [],
+            summary: { overallVisibility: 0, totalMentions: 0, avgSentiment: 0, totalQueries: queries.length }
+        });
+    }
+    
+    // Get results from the latest runs
+    const runIds = runs.map(r => r.id);
+    const results = db.prepare(`
+        SELECT qr.*, q.query_text, ar.platform
+        FROM query_results qr
+        JOIN queries q ON qr.query_id = q.id
+        JOIN analysis_runs ar ON qr.run_id = ar.id
+        WHERE qr.run_id IN (${runIds.map(() => '?').join(',')})
+    `).all(...runIds);
+    
+    // Get citations
+    const citations = db.prepare(`
+        SELECT c.*, ar.platform
+        FROM citations c
+        JOIN analysis_runs ar ON c.run_id = ar.id
+        WHERE c.run_id IN (${runIds.map(() => '?').join(',')})
+    `).all(...runIds);
+    
+    // Calculate summary
+    const totalMentions = results.filter(r => r.mentioned).length;
+    const avgSentiment = results.length > 0 
+        ? Math.round(results.reduce((sum, r) => sum + (r.sentiment_score || 50), 0) / results.length)
+        : 0;
+    const visibilityScore = runs.length > 0
+        ? Math.round(runs.reduce((sum, r) => sum + (r.visibility_score || 0), 0) / runs.length)
+        : 0;
+    
+    // Calculate competitor mentions from results
+    const competitorMentions = {};
+    competitors.forEach(c => { competitorMentions[c.name] = 0; });
+    results.forEach(r => {
+        if (r.competitor_mentions) {
+            try {
+                const mentions = JSON.parse(r.competitor_mentions);
+                Object.entries(mentions).forEach(([name, count]) => {
+                    if (competitorMentions.hasOwnProperty(name)) {
+                        competitorMentions[name] += count;
+                    }
+                });
+            } catch (e) {}
+        }
+    });
+    
+    res.json({
+        brand,
+        competitors,
+        queries,
+        runs,
+        results: results.map(r => ({
+            ...r,
+            query_text: r.query_text,
+            mentioned: !!r.mentioned,
+            sentiment_score: r.sentiment_score || 50,
+            positive_keywords: r.positive_keywords ? JSON.parse(r.positive_keywords) : [],
+            negative_keywords: r.negative_keywords ? JSON.parse(r.negative_keywords) : [],
+            competitor_mentions: r.competitor_mentions ? JSON.parse(r.competitor_mentions) : {}
+        })),
+        citations,
+        competitorMentions,
+        summary: {
+            overallVisibility: visibilityScore,
+            totalMentions,
+            totalQueries: queries.length,
+            avgSentiment,
+            citationCount: citations.length
+        }
+    });
+});
+
 // Get run details
 app.get('/api/runs/:id', authenticateToken, (req, res) => {
     const run = db.prepare(`
