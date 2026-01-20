@@ -1,4 +1,5 @@
 # AI Brand Insights Pro - Docker Image
+# Build v2 - Updated dependencies
 FROM node:20-slim
 
 # Install build dependencies for better-sqlite3
@@ -13,8 +14,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Clean install dependencies (no cache)
+RUN npm cache clean --force && npm install
 
 # Copy application code
 COPY . .
