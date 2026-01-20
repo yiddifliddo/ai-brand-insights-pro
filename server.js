@@ -915,6 +915,17 @@ app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) 
     res.json({ id: result.lastInsertRowid, query_text, category });
 });
 
+// Delete a query
+app.delete('/api/queries/:id', authenticateToken, requireAdmin, (req, res) => {
+    const query = db.prepare('SELECT * FROM queries WHERE id = ?').get(req.params.id);
+    if (!query) {
+        return res.status(404).json({ error: 'Query not found' });
+    }
+    db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
+    logActivity(req.user.id, 'query_deleted', { queryId: req.params.id, query_text: query.query_text });
+    res.json({ success: true });
+});
+
 // ============================================
 // Analysis Routes
 // ============================================
