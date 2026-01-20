@@ -14,16 +14,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install
 
 # Copy application code
 COPY . .
 
 # Create data directory
 RUN mkdir -p /app/data
-
-# Initialize database
-RUN node scripts/init-database.js
 
 # Expose port
 EXPOSE 3000
