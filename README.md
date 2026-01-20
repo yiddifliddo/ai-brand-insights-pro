@@ -55,8 +55,8 @@ Generate a secure secret: `openssl rand -base64 32`
 
 1. Open your Railway URL
 2. Login with default credentials:
-   - **Email:** `admin@standex.com`
-   - **Password:** `admin123`
+   - **Email:** `admin@xxxxxxxx.com`
+   - **Password:** `xxxxxxxx`
 3. **IMMEDIATELY** change the admin password (or create a new admin and delete the default)
 
 ### Step 6: Configure API Keys
