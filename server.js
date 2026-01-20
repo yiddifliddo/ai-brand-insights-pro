@@ -488,7 +488,7 @@ async function runScheduledAnalysis() {
         
         try {
             const competitors = db.prepare('SELECT * FROM competitors WHERE brand_id = ?').all(brand.id);
-            const platforms = ['chatgpt', 'gemini', 'perplexity', 'claude'];
+            const platforms = ['chatgpt', 'gemini', 'perplexity', 'claude', 'mistral'];
             const results = { visibility: 0, mentions: 0, totalQueries: 0, sentiment: 0, citations: 0 };
             let platformCount = 0;
             
@@ -518,6 +518,7 @@ async function runScheduledAnalysis() {
                             case 'gemini': response = await queryGemini(query.query_text); break;
                             case 'perplexity': response = await queryPerplexity(query.query_text); break;
                             case 'claude': response = await queryClaude(query.query_text); break;
+                            case 'mistral': response = await queryMistral(query.query_text); break;
                         }
                         
                         if (response.error) {
@@ -791,7 +792,7 @@ app.get('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
 app.post('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
     const { platform, api_key } = req.body;
     
-    if (!['openai', 'google', 'perplexity', 'anthropic'].includes(platform)) {
+    if (!['openai', 'google', 'perplexity', 'anthropic', 'mistral'].includes(platform)) {
         return res.status(400).json({ error: 'Invalid platform' });
     }
     
@@ -1005,6 +1006,43 @@ async function queryClaude(prompt) {
     }
 }
 
+async function queryMistral(prompt) {
+    const apiKey = getApiKey('mistral');
+    if (!apiKey) {
+        console.log('❌ Mistral: No API key configured');
+        return { error: 'Mistral not configured', response: null };
+    }
+    
+    try {
+        console.log('🔍 Mistral: Querying...');
+        const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'mistral-small-latest',
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('❌ Mistral Error:', data.error.message);
+            return { error: data.error.message, response: null };
+        }
+        
+        const text = data.choices?.[0]?.message?.content || '';
+        console.log('✅ Mistral: Got response');
+        return { response: text };
+    } catch (error) {
+        console.error('❌ Mistral Error:', error.message);
+        return { error: error.message, response: null };
+    }
+}
+
 function analyzeResponse(response, brandName, competitors = []) {
     if (!response) return { mentioned: false, sentimentScore: 50, positiveKeywords: [], negativeKeywords: [], competitorMentions: {} };
     
@@ -1068,7 +1106,7 @@ function categorizeDomain(domain) {
 
 // Run analysis endpoint
 app.post('/api/brands/:id/analyze', authenticateToken, async (req, res) => {
-    const { platforms = ['chatgpt', 'gemini', 'perplexity', 'claude'] } = req.body;
+    const { platforms = ['chatgpt', 'gemini', 'perplexity', 'claude', 'mistral'] } = req.body;
     const brandId = req.params.id;
     
     const brand = db.prepare('SELECT * FROM brands WHERE id = ?').get(brandId);
@@ -1100,6 +1138,7 @@ app.post('/api/brands/:id/analyze', authenticateToken, async (req, res) => {
                 case 'gemini': response = await queryGemini(query.query_text); break;
                 case 'perplexity': response = await queryPerplexity(query.query_text); break;
                 case 'claude': response = await queryClaude(query.query_text); break;
+                case 'mistral': response = await queryMistral(query.query_text); break;
             }
             
             if (response.error) {
