@@ -400,7 +400,7 @@
         const AnalyzePage = () => {
             const [brands, setBrands] = useState([]);
             const [selectedBrand, setSelectedBrand] = useState(null);
-            const [platforms, setPlatforms] = useState({ chatgpt: true, gemini: true, perplexity: true });
+            const [platforms, setPlatforms] = useState({ chatgpt: true, gemini: true, perplexity: true, claude: true });
             const [apiStatus, setApiStatus] = useState({});
             const [analyzing, setAnalyzing] = useState(false);
             const [results, setResults] = useState(null);
@@ -459,23 +459,24 @@
                                 <label className="block text-sm text-slate-400 mb-2">Platforms</label>
                                 <div className="flex flex-wrap gap-3">
                                     {[
-                                        { id: 'chatgpt', label: 'ChatGPT', icon: '🤖' },
-                                        { id: 'gemini', label: 'Gemini', icon: '✨' },
-                                        { id: 'perplexity', label: 'Perplexity', icon: '🔍' }
+                                        { id: 'chatgpt', label: 'ChatGPT', icon: '🤖', apiKey: 'openai' },
+                                        { id: 'gemini', label: 'Gemini', icon: '✨', apiKey: 'google' },
+                                        { id: 'perplexity', label: 'Perplexity', icon: '🔍', apiKey: 'perplexity' },
+                                        { id: 'claude', label: 'Claude', icon: '🧠', apiKey: 'anthropic' }
                                     ].map(p => (
                                         <label key={p.id} className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors ${
                                             platforms[p.id] ? 'bg-sky-500/20 border border-sky-500/50' : 'bg-slate-800 border border-slate-700'
-                                        } ${!apiStatus[p.id === 'chatgpt' ? 'openai' : p.id === 'gemini' ? 'google' : 'perplexity'] ? 'opacity-50' : ''}`}>
+                                        } ${!apiStatus[p.apiKey] ? 'opacity-50' : ''}`}>
                                             <input
                                                 type="checkbox"
                                                 checked={platforms[p.id]}
                                                 onChange={(e) => setPlatforms({ ...platforms, [p.id]: e.target.checked })}
-                                                disabled={!apiStatus[p.id === 'chatgpt' ? 'openai' : p.id === 'gemini' ? 'google' : 'perplexity']}
+                                                disabled={!apiStatus[p.apiKey]}
                                                 className="sr-only"
                                             />
                                             <span>{p.icon}</span>
                                             <span>{p.label}</span>
-                                            {!apiStatus[p.id === 'chatgpt' ? 'openai' : p.id === 'gemini' ? 'google' : 'perplexity'] && (
+                                            {!apiStatus[p.apiKey] && (
                                                 <span className="text-xs text-red-400">(Not configured)</span>
                                             )}
                                         </label>
@@ -794,16 +795,16 @@
                     <div className="glass rounded-xl p-6">
                         <h3 className="font-semibold mb-4">Current Keys</h3>
                         <div className="space-y-3 mb-6">
-                            {['openai', 'google', 'perplexity'].map(platform => {
+                            {['openai', 'google', 'anthropic', 'perplexity'].map(platform => {
                                 const key = keys.find(k => k.platform === platform);
                                 return (
                                     <div key={platform} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                                         <div className="flex items-center gap-3">
                                             <span className="text-xl">
-                                                {platform === 'openai' ? '🤖' : platform === 'google' ? '✨' : '🔍'}
+                                                {platform === 'openai' ? '🤖' : platform === 'google' ? '✨' : platform === 'anthropic' ? '🧠' : '🔍'}
                                             </span>
                                             <div>
-                                                <p className="font-medium capitalize">{platform === 'openai' ? 'OpenAI (ChatGPT)' : platform === 'google' ? 'Google (Gemini)' : 'Perplexity'}</p>
+                                                <p className="font-medium capitalize">{platform === 'openai' ? 'OpenAI (ChatGPT)' : platform === 'google' ? 'Google (Gemini)' : platform === 'anthropic' ? 'Anthropic (Claude)' : 'Perplexity'}</p>
                                                 <p className="text-sm text-slate-400">
                                                     {key ? key.api_key_masked : 'Not configured'}
                                                 </p>
@@ -826,6 +827,7 @@
                             >
                                 <option value="openai">OpenAI (ChatGPT)</option>
                                 <option value="google">Google (Gemini)</option>
+                                <option value="anthropic">Anthropic (Claude)</option>
                                 <option value="perplexity">Perplexity</option>
                             </select>
                             <input
@@ -850,6 +852,7 @@
                         <div className="space-y-3 text-sm">
                             <p><span className="text-slate-400">OpenAI:</span> <a href="https://platform.openai.com/api-keys" target="_blank" className="text-sky-400 hover:underline">platform.openai.com/api-keys</a></p>
                             <p><span className="text-slate-400">Google AI:</span> <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-sky-400 hover:underline">aistudio.google.com/app/apikey</a></p>
+                            <p><span className="text-slate-400">Anthropic:</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-sky-400 hover:underline">console.anthropic.com/settings/keys</a></p>
                             <p><span className="text-slate-400">Perplexity:</span> <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-sky-400 hover:underline">perplexity.ai/settings/api</a></p>
                         </div>
                     </div>
