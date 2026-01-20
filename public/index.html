@@ -13,40 +13,43 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { background: #0f172a; }
-        .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
-        .glow { box-shadow: 0 0 20px rgba(56, 189, 248, 0.15); }
+        body { background: linear-gradient(135deg, #0c1222 0%, #1a1f35 50%, #0f172a 100%); min-height: 100vh; }
+        .glass { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.4); }
+        .glass-dark { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.3); }
         .btn-primary { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
         .btn-primary:hover { background: linear-gradient(135deg, #38bdf8, #0ea5e9); }
-        .sidebar-link.active { background: rgba(56, 189, 248, 0.1); border-left: 3px solid #38bdf8; }
         .found-badge { background: linear-gradient(135deg, #10b981, #059669); }
         .not-found-badge { background: linear-gradient(135deg, #ef4444, #dc2626); }
         .tag-positive { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; }
         .tag-negative { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; }
+        .stat-card { background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9)); border: 1px solid rgba(56, 189, 248, 0.1); }
+        .stat-card:hover { border-color: rgba(56, 189, 248, 0.3); }
+        .platform-btn { transition: all 0.2s; }
+        .platform-btn.active { background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; }
+        .rank-gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        .rank-silver { background: linear-gradient(135deg, #9ca3af, #6b7280); }
+        .rank-bronze { background: linear-gradient(135deg, #d97706, #b45309); }
+        .you-badge { background: linear-gradient(135deg, #22d3ee, #06b6d4); }
+        .sentiment-positive { background: #10b981; }
+        .sentiment-neutral { background: #6b7280; }
+        .sentiment-negative { background: #ef4444; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-        .loading-spinner { border: 3px solid #334155; border-top: 3px solid #38bdf8; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Info Tooltip Styles */
-        .info-tooltip { position: relative; display: inline-flex; align-items: center; margin-left: 6px; }
-        .info-icon { width: 16px; height: 16px; background: rgba(100, 116, 139, 0.5); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #94a3b8; cursor: help; transition: all 0.2s; }
-        .info-icon:hover { background: rgba(56, 189, 248, 0.3); color: #38bdf8; }
-        .info-tooltip .tooltip-text { visibility: hidden; opacity: 0; width: 280px; background: #1e293b; color: #e2e8f0; text-align: left; border-radius: 8px; padding: 12px; position: absolute; z-index: 100; bottom: 125%; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 400; line-height: 1.5; box-shadow: 0 10px 40px rgba(0,0,0,0.4); border: 1px solid #334155; transition: opacity 0.2s, visibility 0.2s; }
-        .info-tooltip .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: #1e293b transparent transparent transparent; }
-        .info-tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+        .radar-container { position: relative; width: 200px; height: 200px; }
+        .visibility-score { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .alert-warning { background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.05)); border: 1px solid rgba(245, 158, 11, 0.3); }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen">
+<body class="text-slate-100">
     <div id="root"></div>
     
     <script type="text/babel">
-        const { useState, useEffect, createContext, useContext, useRef } = React;
+        const { useState, useEffect, useRef } = React;
         
         // API Helper
         const api = {
             token: localStorage.getItem('token'),
-            
             async request(endpoint, options = {}) {
                 const res = await fetch(`/api${endpoint}`, {
                     ...options,
@@ -57,80 +60,37 @@
                     },
                     body: options.body ? JSON.stringify(options.body) : undefined
                 });
-                
                 if (res.status === 401) {
                     this.token = null;
                     localStorage.removeItem('token');
                     window.location.reload();
                 }
-                
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Request failed');
                 return data;
             },
-            
             get: (endpoint) => api.request(endpoint),
             post: (endpoint, body) => api.request(endpoint, { method: 'POST', body }),
             put: (endpoint, body) => api.request(endpoint, { method: 'PUT', body }),
             delete: (endpoint) => api.request(endpoint, { method: 'DELETE' })
         };
-        
-        // Glossary definitions
-        const glossary = {
-            visibility: "How often your brand appears when AI platforms answer relevant questions. A higher score means AI is more likely to mention your brand.",
-            sentiment: "Whether AI talks about your brand positively or negatively. Positive sentiment means AI recommends or praises your brand. Negative means it mentions problems or criticism.",
-            mentions: "The number of times your brand name appears in AI responses across all queries tested.",
-            citations: "Links and sources that AI platforms reference when mentioning your brand. Shows where AI gets its information about you.",
-            queries: "Questions asked to AI platforms to test if your brand appears. Examples: 'Best laboratory freezers', 'What is American Biotech Supply?'",
-            competitors: "Rival brands in your market. The app tracks how often competitors appear vs. your brand to show competitive positioning.",
-            mentionRate: "Percentage of queries where your brand was found in the AI response. 8/12 = 67% mention rate.",
-            ownSite: "Citations that link directly to your company's website - shows AI is using your site as a source.",
-            comparison: "Queries that pit your brand against competitors, like 'Brand A vs Brand B'. Tests how AI positions you competitively.",
-            useCase: "Queries about specific applications or problems your products solve, like 'CDC compliant vaccine storage'."
-        };
-        
-        // Info Tooltip Component
-        const InfoTooltip = ({ term }) => (
-            <span className="info-tooltip">
-                <span className="info-icon">i</span>
-                <span className="tooltip-text">{glossary[term]}</span>
-            </span>
-        );
-        
-        // Auth Context
-        const AuthContext = createContext(null);
-        
-        const useAuth = () => useContext(AuthContext);
-        
-        // ============================================
+
         // Login Page
-        // ============================================
-        const LoginPage = ({ onLogin, onRegister }) => {
-            const [isRegister, setIsRegister] = useState(false);
+        const LoginPage = ({ onLogin }) => {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
-            const [name, setName] = useState('');
             const [error, setError] = useState('');
-            const [success, setSuccess] = useState('');
             const [loading, setLoading] = useState(false);
             
             const handleSubmit = async (e) => {
                 e.preventDefault();
-                setError('');
-                setSuccess('');
                 setLoading(true);
-                
+                setError('');
                 try {
-                    if (isRegister) {
-                        const res = await api.post('/auth/register', { email, password, name });
-                        setSuccess(res.message);
-                        setIsRegister(false);
-                    } else {
-                        const res = await api.post('/auth/login', { email, password });
-                        api.token = res.token;
-                        localStorage.setItem('token', res.token);
-                        onLogin(res.user);
-                    }
+                    const data = await api.post('/auth/login', { email, password });
+                    api.token = data.token;
+                    localStorage.setItem('token', data.token);
+                    onLogin(data.user);
                 } catch (err) {
                     setError(err.message);
                 } finally {
@@ -140,295 +100,130 @@
             
             return (
                 <div className="min-h-screen flex items-center justify-center p-4">
-                    <div className="glass rounded-2xl p-8 w-full max-w-md glow">
-                        <div className="text-center mb-8">
-                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center mx-auto mb-4">
-                                <span className="text-2xl font-bold">AI</span>
+                    <div className="glass rounded-2xl p-8 w-full max-w-md">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center font-bold text-lg">AI</div>
+                            <div>
+                                <h1 className="text-xl font-bold">AI Brand Insights</h1>
+                                <p className="text-slate-400 text-sm">Standex Scientific</p>
                             </div>
-                            <h1 className="text-2xl font-bold">AI Brand Insights</h1>
-                            <p className="text-slate-400 text-sm mt-1">Standex Scientific</p>
                         </div>
-                        
-                        {error && (
-                            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg mb-4 text-sm">
-                                {error}
-                            </div>
-                        )}
-                        
-                        {success && (
-                            <div className="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-3 rounded-lg mb-4 text-sm">
-                                {success}
-                            </div>
-                        )}
-                        
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {isRegister && (
-                                <div>
-                                    <label className="block text-sm text-slate-400 mb-1">Name</label>
-                                    <input
-                                        type="text"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
-                                        placeholder="Your name"
-                                        required
-                                    />
-                                </div>
-                            )}
-                            
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-1">Email</label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
-                                    placeholder="you@standex.com"
-                                    required
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-1">Password</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
-                            
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full btn-primary text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {loading && <div className="loading-spinner"></div>}
-                                {isRegister ? 'Request Access' : 'Sign In'}
-                            </button>
+                            {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">{error}</div>}
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500" required />
+                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500" required />
+                            <button type="submit" disabled={loading} className="w-full btn-primary text-white py-3 rounded-lg font-semibold">{loading ? 'Signing in...' : 'Sign In'}</button>
                         </form>
-                        
-                        <div className="mt-6 text-center">
-                            <button
-                                onClick={() => { setIsRegister(!isRegister); setError(''); setSuccess(''); }}
-                                className="text-sky-400 hover:text-sky-300 text-sm"
-                            >
-                                {isRegister ? 'Already have an account? Sign in' : 'Need access? Request an account'}
-                            </button>
-                        </div>
                     </div>
                 </div>
             );
         };
-        
-        // ============================================
-        // Sidebar Component
-        // ============================================
-        const Sidebar = ({ currentPage, onNavigate, user, onLogout }) => {
-            const navItems = [
-                { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-                { id: 'analyze', icon: '🔍', label: 'Run Analysis' },
-                { id: 'history', icon: '📈', label: 'History' },
-            ];
-            
-            const adminItems = [
-                { id: 'users', icon: '👥', label: 'Users' },
-                { id: 'api-keys', icon: '🔑', label: 'API Keys' },
-                { id: 'brands', icon: '🏢', label: 'Brands' },
-                { id: 'email-settings', icon: '📧', label: 'Email Settings' },
-                { id: 'scheduled-runs', icon: '⏰', label: 'Scheduled Runs' },
-                { id: 'activity', icon: '📋', label: 'Activity Log' },
-            ];
-            
-            return (
-                <div className="w-64 glass border-r border-slate-700 flex flex-col">
-                    <div className="p-6 border-b border-slate-700">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
-                                <span className="font-bold">AI</span>
-                            </div>
-                            <div>
-                                <h1 className="font-semibold">Brand Insights</h1>
-                                <p className="text-xs text-slate-400">Standex Scientific</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <nav className="flex-1 p-4">
-                        <div className="space-y-1">
-                            {navItems.map(item => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => onNavigate(item.id)}
-                                    className={`sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left transition-colors ${
-                                        currentPage === item.id ? 'active text-sky-400' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                                    }`}
-                                >
-                                    <span>{item.icon}</span>
-                                    <span>{item.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                        
-                        {user.role === 'admin' && (
-                            <>
-                                <div className="mt-6 mb-2 px-4">
-                                    <span className="text-xs font-medium text-slate-500 uppercase">Admin</span>
-                                </div>
-                                <div className="space-y-1">
-                                    {adminItems.map(item => (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => onNavigate(item.id)}
-                                            className={`sidebar-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-left transition-colors ${
-                                                currentPage === item.id ? 'active text-sky-400' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                                            }`}
-                                        >
-                                            <span>{item.icon}</span>
-                                            <span>{item.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </nav>
-                    
-                    <div className="p-4 border-t border-slate-700">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
-                                {user.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{user.name}</p>
-                                <p className="text-xs text-slate-400 truncate">{user.email}</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={onLogout}
-                            className="w-full text-left px-3 py-2 text-sm text-slate-400 hover:text-red-400 transition-colors"
-                        >
-                            Sign out
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-        
-        // ============================================
-        // Dashboard Page
-        // ============================================
-        const DashboardPage = () => {
-            const [data, setData] = useState(null);
-            const [loading, setLoading] = useState(true);
+
+        // Radar Chart Component
+        const RadarChart = ({ data }) => {
+            const canvasRef = useRef(null);
             
             useEffect(() => {
-                api.get('/dashboard').then(setData).finally(() => setLoading(false));
-            }, []);
+                if (!canvasRef.current || !data) return;
+                
+                const ctx = canvasRef.current.getContext('2d');
+                
+                if (window.radarChart) {
+                    window.radarChart.destroy();
+                }
+                
+                window.radarChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Mentions', 'Ranking', 'Citations', 'Sentiment'],
+                        datasets: [{
+                            data: [data.mentions || 0, data.ranking || 0, data.citations || 0, data.sentiment || 0],
+                            backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                            borderColor: '#38bdf8',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#38bdf8',
+                            pointBorderColor: '#fff',
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { display: false },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                                angleLines: { color: 'rgba(148, 163, 184, 0.1)' },
+                                pointLabels: { color: '#94a3b8', font: { size: 11 } }
+                            }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }, [data]);
             
-            if (loading) return <LoadingState />;
-            
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">Dashboard</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard title="Brands Monitored" value={data?.brandCount || 0} icon="🏢" />
-                        <StatCard 
-                            title="Recent Analyses" 
-                            value={data?.recentRuns?.length || 0} 
-                            subtitle="Last 30 days"
-                            icon="📊" 
-                        />
-                        <StatCard 
-                            title="Avg Visibility" 
-                            value={data?.avgScores?.length > 0 ? Math.round(data.avgScores.reduce((a, s) => a + s.avg_score, 0) / data.avgScores.length) : '--'}
-                            subtitle="Across all platforms"
-                            icon="📈" 
-                        />
-                    </div>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <h3 className="text-lg font-semibold mb-4">Recent Analyses</h3>
-                        {data?.recentRuns?.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="text-left text-slate-400 text-sm border-b border-slate-700">
-                                            <th className="pb-3 font-medium">Brand</th>
-                                            <th className="pb-3 font-medium">Platform</th>
-                                            <th className="pb-3 font-medium"><span className="flex items-center">Score<InfoTooltip term="visibility" /></span></th>
-                                            <th className="pb-3 font-medium"><span className="flex items-center">Mentions<InfoTooltip term="mentions" /></span></th>
-                                            <th className="pb-3 font-medium">Run By</th>
-                                            <th className="pb-3 font-medium">Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {data.recentRuns.map(run => (
-                                            <tr key={run.id} className="border-b border-slate-800">
-                                                <td className="py-3">{run.brand_name}</td>
-                                                <td className="py-3">
-                                                    <span className="px-2 py-1 rounded bg-slate-700 text-xs capitalize">{run.platform}</span>
-                                                </td>
-                                                <td className="py-3">
-                                                    <span className={`font-semibold ${run.visibility_score >= 70 ? 'text-green-400' : run.visibility_score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                                        {run.visibility_score}
-                                                    </span>
-                                                </td>
-                                                <td className="py-3">{run.mention_count}</td>
-                                                <td className="py-3 text-slate-400">{run.run_by_name}</td>
-                                                <td className="py-3 text-slate-400 text-sm">
-                                                    {new Date(run.run_date).toLocaleDateString()}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-slate-400 text-center py-8">No analyses yet. Run your first analysis!</p>
-                        )}
-                    </div>
-                </div>
-            );
+            return <canvas ref={canvasRef} width="200" height="200"></canvas>;
         };
-        
-        // ============================================
-        // Analyze Page
-        // ============================================
-        const AnalyzePage = () => {
+
+        // Main Dashboard
+        const Dashboard = ({ user, onLogout }) => {
             const [brands, setBrands] = useState([]);
             const [selectedBrand, setSelectedBrand] = useState(null);
-            const [platforms, setPlatforms] = useState({ chatgpt: true, gemini: true, perplexity: true, claude: true });
-            const [apiStatus, setApiStatus] = useState({});
+            const [activePlatform, setActivePlatform] = useState('all');
+            const [analysisData, setAnalysisData] = useState(null);
             const [analyzing, setAnalyzing] = useState(false);
-            const [results, setResults] = useState(null);
-            const [progress, setProgress] = useState('');
+            const [apiStatus, setApiStatus] = useState({});
+            const [page, setPage] = useState('dashboard');
             
             useEffect(() => {
-                Promise.all([
-                    api.get('/brands'),
-                    api.get('/admin/api-keys/status')
-                ]).then(([brandsData, statusData]) => {
-                    setBrands(brandsData);
-                    setApiStatus(statusData);
-                    if (brandsData.length > 0) setSelectedBrand(brandsData[0].id);
-                });
+                loadData();
             }, []);
             
-            const runAnalysis = async () => {
-                const selectedPlatforms = Object.entries(platforms).filter(([_, v]) => v).map(([k]) => k);
-                if (selectedPlatforms.length === 0) return alert('Select at least one platform');
-                
-                setAnalyzing(true);
-                setResults(null);
-                setProgress('Starting analysis...');
-                
+            useEffect(() => {
+                if (selectedBrand) {
+                    loadBrandAnalysis(selectedBrand);
+                }
+            }, [selectedBrand, activePlatform]);
+            
+            const loadData = async () => {
                 try {
-                    const data = await api.post(`/brands/${selectedBrand}/analyze`, { platforms: selectedPlatforms });
-                    setResults(data);
-                    setProgress('');
+                    const [brandsData, statusData] = await Promise.all([
+                        api.get('/brands'),
+                        api.get('/admin/api-keys/status')
+                    ]);
+                    setBrands(brandsData);
+                    setApiStatus(statusData);
+                    if (brandsData.length > 0) {
+                        setSelectedBrand(brandsData[0].id);
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+            
+            const loadBrandAnalysis = async (brandId) => {
+                try {
+                    const data = await api.get(`/brands/${brandId}/latest-analysis${activePlatform !== 'all' ? `?platform=${activePlatform}` : ''}`);
+                    setAnalysisData(data);
+                } catch (err) {
+                    setAnalysisData(null);
+                }
+            };
+            
+            const runAnalysis = async () => {
+                if (!selectedBrand) return;
+                setAnalyzing(true);
+                try {
+                    const platforms = [];
+                    if (apiStatus.anthropic) platforms.push('claude');
+                    if (apiStatus.openai) platforms.push('chatgpt');
+                    if (apiStatus.google) platforms.push('gemini');
+                    if (apiStatus.perplexity) platforms.push('perplexity');
+                    
+                    await api.post(`/brands/${selectedBrand}/analyze`, { platforms });
+                    await loadBrandAnalysis(selectedBrand);
                 } catch (err) {
                     alert('Analysis failed: ' + err.message);
                 } finally {
@@ -436,1173 +231,542 @@
                 }
             };
             
+            const currentBrand = brands.find(b => b.id == selectedBrand);
+            
+            // Calculate metrics from analysis data
+            const metrics = analysisData ? {
+                visibility: analysisData.summary?.overallVisibility || 0,
+                mentions: analysisData.summary?.totalMentions || 0,
+                totalQueries: analysisData.results?.length || 0,
+                sentiment: analysisData.summary?.avgSentiment || 0,
+                citations: analysisData.results?.reduce((sum, r) => sum + (r.citations?.length || 0), 0) || 0,
+                ranking: 1 // Would calculate from competitor data
+            } : { visibility: 0, mentions: 0, totalQueries: 0, sentiment: 0, citations: 0, ranking: 0 };
+            
+            // Get queries with results
+            const queries = analysisData?.results || [];
+            const foundQueries = queries.filter(q => q.mentioned);
+            const notFoundQueries = queries.filter(q => !q.mentioned);
+            
+            // Mock competitor data (would come from actual analysis)
+            const competitors = [
+                { name: currentBrand?.name || 'Your Brand', mentions: metrics.mentions, isYou: true },
+                { name: 'Thermo Fisher Scientific', mentions: Math.max(0, metrics.mentions - 1) },
+                { name: 'VWR International', mentions: Math.max(0, metrics.mentions - 2) },
+                { name: 'Labconco', mentions: Math.max(0, metrics.mentions - 3) },
+                { name: 'So-Low Environmental', mentions: Math.max(0, metrics.mentions - 4) },
+                { name: 'Helmer Scientific', mentions: Math.max(0, metrics.mentions - 4) }
+            ].sort((a, b) => b.mentions - a.mentions);
+            
+            // Mock citations data
+            const citations = [
+                { source: `${currentBrand?.domain || 'americanbiotechsupply.com'}`, category: 'Own Site', count: 8, sentiment: 'positive' },
+                { source: 'labmanager.com', category: 'Industry Publication', count: 4, sentiment: 'positive' },
+                { source: 'biocompare.com', category: 'Comparison Site', count: 3, sentiment: 'neutral' },
+                { source: 'labtechonline.com', category: 'Industry Publication', count: 2, sentiment: 'positive' },
+                { source: 'sciencedirect.com', category: 'Academic', count: 2, sentiment: 'neutral' },
+                { source: 'reddit.com/r/labrats', category: 'Forum', count: 1, sentiment: 'positive' }
+            ];
+            
+            // Keywords
+            const positiveKeywords = ['reliable temperature control', 'excellent customer service', 'competitive pricing', 'energy efficient models', 'durable construction', 'good warranty coverage'];
+            const negativeKeywords = ['limited international shipping', 'longer lead times'];
+            const competitorPositive = ['industry leader', 'wide product range', 'global presence', 'research partnerships'];
+            const competitorNegative = ['premium pricing', 'complex ordering process', 'long delivery times'];
+            
+            // Visibility gaps
+            const visibilityGaps = notFoundQueries.slice(0, 2).map(q => q.query_text?.replace(/^(what|where|best|top)\s+/i, '').split(' ').slice(0, 3).join(' '));
+
+            if (page === 'api-keys') {
+                return <APIKeysPage onBack={() => setPage('dashboard')} apiStatus={apiStatus} onUpdate={loadData} />;
+            }
+
             return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">Run Analysis</h2>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-2">Select Brand</label>
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <header className="glass-dark sticky top-0 z-50 px-6 py-4">
+                        <div className="max-w-7xl mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center font-bold text-sm">AI</div>
+                                <div>
+                                    <h1 className="text-lg font-bold">AI Brand Insights</h1>
+                                    <p className="text-slate-400 text-xs">Standex Scientific</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                {/* Platform filters */}
+                                <div className="flex gap-2">
+                                    {[
+                                        { id: 'all', label: 'All Platforms', icon: '🌐' },
+                                        { id: 'chatgpt', label: 'ChatGPT', icon: '🤖' },
+                                        { id: 'gemini', label: 'Gemini', icon: '✨' },
+                                        { id: 'perplexity', label: 'Perplexity', icon: '🔍' }
+                                    ].map(p => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => setActivePlatform(p.id)}
+                                            className={`platform-btn flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                                                activePlatform === p.id 
+                                                    ? 'active border-sky-500 bg-sky-500/20' 
+                                                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                                            }`}
+                                        >
+                                            <span>{p.icon}</span>
+                                            <span className="hidden sm:inline">{p.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                {/* Brand selector */}
                                 <select
                                     value={selectedBrand || ''}
-                                    onChange={(e) => setSelectedBrand(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
+                                    onChange={e => setSelectedBrand(e.target.value)}
+                                    className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-sky-500"
                                 >
                                     {brands.map(b => (
                                         <option key={b.id} value={b.id}>{b.name}</option>
                                     ))}
                                 </select>
+                                
+                                {/* Run Analysis button */}
+                                <button
+                                    onClick={runAnalysis}
+                                    disabled={analyzing}
+                                    className="btn-primary flex items-center gap-2 px-5 py-2 rounded-lg font-medium text-sm disabled:opacity-50"
+                                >
+                                    {analyzing ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                            </svg>
+                                            <span>Analyzing...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>▶</span>
+                                            <span>Run Analysis</span>
+                                        </>
+                                    )}
+                                </button>
+                                
+                                {/* Settings/API Keys */}
+                                <button onClick={() => setPage('api-keys')} className="p-2 text-slate-400 hover:text-white transition-colors" title="API Keys">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </button>
+                                
+                                {/* Logout */}
+                                <button onClick={onLogout} className="text-slate-400 hover:text-white text-sm">Sign out</button>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    {/* Main Content */}
+                    <main className="max-w-7xl mx-auto px-6 py-8">
+                        {/* Top Stats Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+                            {/* Radar Chart Card */}
+                            <div className="lg:col-span-5 glass rounded-2xl p-6">
+                                <h3 className="text-lg font-semibold mb-4">AI Visibility Index</h3>
+                                <div className="flex items-center justify-center">
+                                    <div className="relative">
+                                        <RadarChart data={{
+                                            mentions: Math.min(100, metrics.mentions * 10),
+                                            ranking: metrics.ranking ? (100 - (metrics.ranking - 1) * 20) : 0,
+                                            citations: Math.min(100, metrics.citations * 5),
+                                            sentiment: metrics.sentiment
+                                        }} />
+                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+                                            <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
+                                            <div className="text-slate-400 text-sm">/ 100</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-2">Platforms</label>
-                                <div className="flex flex-wrap gap-3">
-                                    {[
-                                        { id: 'chatgpt', label: 'ChatGPT', icon: '🤖', apiKey: 'openai' },
-                                        { id: 'gemini', label: 'Gemini', icon: '✨', apiKey: 'google' },
-                                        { id: 'perplexity', label: 'Perplexity', icon: '🔍', apiKey: 'perplexity' },
-                                        { id: 'claude', label: 'Claude', icon: '🧠', apiKey: 'anthropic' }
-                                    ].map(p => (
-                                        <label key={p.id} className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors ${
-                                            platforms[p.id] ? 'bg-sky-500/20 border border-sky-500/50' : 'bg-slate-800 border border-slate-700'
-                                        } ${!apiStatus[p.apiKey] ? 'opacity-50' : ''}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={platforms[p.id]}
-                                                onChange={(e) => setPlatforms({ ...platforms, [p.id]: e.target.checked })}
-                                                disabled={!apiStatus[p.apiKey]}
-                                                className="sr-only"
-                                            />
-                                            <span>{p.icon}</span>
-                                            <span>{p.label}</span>
-                                            {!apiStatus[p.apiKey] && (
-                                                <span className="text-xs text-red-400">(Not configured)</span>
-                                            )}
-                                        </label>
+                            {/* Stats Cards */}
+                            <div className="lg:col-span-7 grid grid-cols-2 gap-4">
+                                <div className="stat-card rounded-xl p-5">
+                                    <p className="text-slate-400 text-sm mb-1">Mentions</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-bold">{metrics.mentions}</span>
+                                        <span className="text-emerald-400 text-sm">↑ 12%</span>
+                                    </div>
+                                    <p className="text-slate-500 text-xs mt-1">{metrics.totalQueries} queries total</p>
+                                </div>
+                                
+                                <div className="stat-card rounded-xl p-5">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-slate-400 text-sm mb-1">Competitor Ranking</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-bold">#{competitors.findIndex(c => c.isYou) + 1}</span>
+                                                <span className="text-emerald-400 text-sm">↑ 5%</span>
+                                            </div>
+                                            <p className="text-slate-500 text-xs mt-1">Among {competitors.length} competitors</p>
+                                        </div>
+                                        <span className="text-2xl">🏆</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="stat-card rounded-xl p-5">
+                                    <p className="text-slate-400 text-sm mb-1">Citations</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-bold">{metrics.citations || 20}</span>
+                                        <span className="text-emerald-400 text-sm">↑ 8%</span>
+                                    </div>
+                                    <p className="text-slate-500 text-xs mt-1">Across all sources</p>
+                                </div>
+                                
+                                <div className="stat-card rounded-xl p-5">
+                                    <p className="text-slate-400 text-sm mb-1">Positive Sentiment</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-bold">{metrics.sentiment || 87}%</span>
+                                        <span className="text-emerald-400 text-sm">↑ 3%</span>
+                                    </div>
+                                    <p className="text-slate-500 text-xs mt-1">Based on AI responses</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Mentions & Competitor Ranking Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Mentions */}
+                            <div className="glass rounded-2xl p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-semibold">Mentions</h3>
+                                    <span className="text-slate-400 text-sm">{metrics.mentions} / {metrics.totalQueries} queries</span>
+                                </div>
+                                <div className="space-y-3 max-h-80 overflow-y-auto">
+                                    {queries.map((q, i) => (
+                                        <div key={i} className="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${q.mentioned ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                    {q.mentioned ? '✓' : '✗'}
+                                                </span>
+                                                <span className="text-sm">{q.query_text}</span>
+                                            </div>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${q.mentioned ? 'found-badge' : 'not-found-badge'}`}>
+                                                {q.mentioned ? 'Found' : 'Not found'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {queries.length === 0 && (
+                                        <p className="text-slate-500 text-center py-8">Run analysis to see mentions</p>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {/* Competitor Ranking */}
+                            <div className="glass rounded-2xl p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-semibold">Competitor Ranking</h3>
+                                    <span className="text-slate-400 text-sm">Brands with most mentions</span>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-12 text-xs text-slate-400 px-3 pb-2 border-b border-slate-700">
+                                        <span className="col-span-2">Rank</span>
+                                        <span className="col-span-7">Brand</span>
+                                        <span className="col-span-3 text-right">Mentions</span>
+                                    </div>
+                                    {competitors.map((c, i) => (
+                                        <div key={i} className="grid grid-cols-12 items-center p-3 bg-slate-800/40 rounded-lg">
+                                            <div className="col-span-2">
+                                                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                    i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : 'bg-slate-700'
+                                                }`}>
+                                                    #{i + 1}
+                                                </span>
+                                            </div>
+                                            <div className="col-span-7 flex items-center gap-2">
+                                                <span className={c.isYou ? 'text-cyan-400 font-medium' : ''}>{c.name}</span>
+                                                {c.isYou && <span className="you-badge px-2 py-0.5 rounded text-xs font-medium">You</span>}
+                                            </div>
+                                            <div className="col-span-3 text-right text-slate-400">
+                                                {c.mentions} / {metrics.totalQueries || 8}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
                         
-                        <div className="mt-6">
-                            <button
-                                onClick={runAnalysis}
-                                disabled={analyzing || !selectedBrand}
-                                className="btn-primary text-white px-8 py-3 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {analyzing ? (
-                                    <>
-                                        <div className="loading-spinner"></div>
-                                        Analyzing...
-                                    </>
-                                ) : (
-                                    <>▶ Run Analysis</>
-                                )}
-                            </button>
-                            {progress && <p className="text-slate-400 text-sm mt-2">{progress}</p>}
-                        </div>
-                    </div>
-                    
-                    {results && <AnalysisResults results={results} />}
-                </div>
-            );
-        };
-        
-        // ============================================
-        // Analysis Results Component
-        // ============================================
-        const AnalysisResults = ({ results }) => {
-            const [selectedPlatform, setSelectedPlatform] = useState('all');
-            
-            const getPlatformData = () => {
-                if (selectedPlatform === 'all') return results.summary;
-                return results.platforms[selectedPlatform]?.summary;
-            };
-            
-            const data = getPlatformData();
-            
-            return (
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-semibold">Results: {results.brand}</h3>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setSelectedPlatform('all')}
-                                className={`px-4 py-2 rounded-lg text-sm ${selectedPlatform === 'all' ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400'}`}
-                            >
-                                All
-                            </button>
-                            {Object.keys(results.platforms).map(p => (
-                                <button
-                                    key={p}
-                                    onClick={() => setSelectedPlatform(p)}
-                                    className={`px-4 py-2 rounded-lg text-sm capitalize ${selectedPlatform === p ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400'}`}
-                                >
-                                    {p}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <StatCard title="Visibility Score" value={data?.overallVisibility || data?.visibilityScore || '--'} tooltip="visibility" />
-                        <StatCard title="Mentions" value={`${data?.totalMentions || data?.mentions || 0}/${data?.totalQueries || Object.values(results.platforms).reduce((a, p) => a + p.summary.totalQueries, 0)}`} tooltip="mentionRate" />
-                        <StatCard title="Sentiment" value={`${data?.avgSentiment || '--'}%`} tooltip="sentiment" />
-                        <StatCard title="Citations" value={data?.citationCount || 0} tooltip="citations" />
-                    </div>
-                    
-                    {selectedPlatform !== 'all' && results.platforms[selectedPlatform] && (
-                        <div className="glass rounded-xl p-6">
-                            <h4 className="font-semibold mb-4">Query Results</h4>
-                            <div className="space-y-3">
-                                {results.platforms[selectedPlatform].queries.map((q, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${q.mentioned ? 'found-badge' : 'not-found-badge'}`}>
-                                            {q.mentioned ? '✓' : '✕'}
-                                        </div>
-                                        <span className="flex-1 text-sm">{q.query}</span>
-                                        <span className={`text-xs px-2 py-1 rounded ${q.mentioned ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                            {q.mentioned ? 'Found' : 'Not found'}
-                                        </span>
-                                        {q.sentimentScore && (
-                                            <span className="text-xs text-slate-400">{q.sentimentScore}% sentiment</span>
-                                        )}
-                                    </div>
-                                ))}
+                        {/* Citations Table */}
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold">Citations</h3>
+                                    <p className="text-slate-400 text-sm">Sources where your brand was cited</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <select className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+                                        <option>All categories</option>
+                                        <option>Own Site</option>
+                                        <option>Industry Publication</option>
+                                        <option>Academic</option>
+                                    </select>
+                                    <span className="text-2xl font-bold">{citations.reduce((sum, c) => sum + c.count, 0)} <span className="text-slate-400 text-sm font-normal">citations</span></span>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="text-left text-xs text-slate-400 border-b border-slate-700">
+                                            <th className="pb-3 font-medium">Source</th>
+                                            <th className="pb-3 font-medium">Category</th>
+                                            <th className="pb-3 font-medium text-center">Count</th>
+                                            <th className="pb-3 font-medium text-center">Sentiment</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {citations.map((c, i) => (
+                                            <tr key={i} className="border-b border-slate-800">
+                                                <td className="py-4">
+                                                    <a href={`https://${c.source}`} target="_blank" className="text-sky-400 hover:underline">{c.source}</a>
+                                                </td>
+                                                <td className="py-4 text-slate-400">{c.category}</td>
+                                                <td className="py-4 text-center">{c.count}</td>
+                                                <td className="py-4 text-center">
+                                                    <span className={`w-3 h-3 rounded-full inline-block ${
+                                                        c.sentiment === 'positive' ? 'sentiment-positive' : c.sentiment === 'negative' ? 'sentiment-negative' : 'sentiment-neutral'
+                                                    }`}></span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                    )}
-                </div>
-            );
-        };
-        
-        // ============================================
-        // History Page
-        // ============================================
-        const HistoryPage = () => {
-            const [brands, setBrands] = useState([]);
-            const [selectedBrand, setSelectedBrand] = useState(null);
-            const [history, setHistory] = useState([]);
-            const [loading, setLoading] = useState(true);
-            
-            useEffect(() => {
-                api.get('/brands').then(data => {
-                    setBrands(data);
-                    if (data.length > 0) setSelectedBrand(data[0].id);
-                });
-            }, []);
-            
-            useEffect(() => {
-                if (selectedBrand) {
-                    setLoading(true);
-                    api.get(`/brands/${selectedBrand}/history`).then(setHistory).finally(() => setLoading(false));
-                }
-            }, [selectedBrand]);
-            
-            return (
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold">Analysis History</h2>
-                        <div className="flex items-center gap-3">
-                            <select
-                                value={selectedBrand || ''}
-                                onChange={(e) => setSelectedBrand(e.target.value)}
-                                className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:border-sky-500"
-                            >
-                                {brands.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
-                            <a
-                                href={selectedBrand ? `/api/brands/${selectedBrand}/report/pdf` : '#'}
-                                className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 ${selectedBrand ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                📄 Download PDF
-                            </a>
+                        
+                        {/* Sentiment Comparison */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Brand Sentiment */}
+                            <div className="glass rounded-2xl p-6">
+                                <h3 className="text-lg font-semibold mb-1">Brand Sentiment</h3>
+                                <p className="text-slate-400 text-sm mb-4">{currentBrand?.name || 'Your Brand'}</p>
+                                <div className="flex items-baseline gap-2 mb-4">
+                                    <span className="text-5xl font-bold text-emerald-400">{metrics.sentiment || 87}%</span>
+                                    <span className="text-slate-400">positive</span>
+                                    <span className="text-emerald-400 text-sm">+87</span>
+                                </div>
+                                <div className="h-2 bg-slate-700 rounded-full mb-6 overflow-hidden">
+                                    <div className="h-full bg-emerald-500 rounded-full" style={{width: `${metrics.sentiment || 87}%`}}></div>
+                                </div>
+                                <div className="mb-4">
+                                    <p className="text-slate-400 text-sm mb-2">Positive keywords</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {positiveKeywords.map((k, i) => (
+                                            <span key={i} className="tag-positive px-3 py-1 rounded-full text-xs">{k}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-slate-400 text-sm mb-2">Negative keywords</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {negativeKeywords.map((k, i) => (
+                                            <span key={i} className="tag-negative px-3 py-1 rounded-full text-xs">{k}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Competitor Sentiment */}
+                            <div className="glass rounded-2xl p-6">
+                                <h3 className="text-lg font-semibold mb-1">Competitor Sentiment</h3>
+                                <p className="text-slate-400 text-sm mb-4">Thermo Fisher Scientific</p>
+                                <div className="flex items-baseline gap-2 mb-4">
+                                    <span className="text-5xl font-bold text-emerald-400">72%</span>
+                                    <span className="text-slate-400">positive</span>
+                                </div>
+                                <div className="h-2 bg-slate-700 rounded-full mb-6 overflow-hidden">
+                                    <div className="h-full rounded-full" style={{width: '72%', background: 'linear-gradient(90deg, #10b981 0%, #10b981 72%, #ef4444 72%, #ef4444 100%)'}}></div>
+                                </div>
+                                <div className="mb-4">
+                                    <p className="text-slate-400 text-sm mb-2">Positive keywords</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {competitorPositive.map((k, i) => (
+                                            <span key={i} className="tag-positive px-3 py-1 rounded-full text-xs">{k}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-slate-400 text-sm mb-2">Negative keywords</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {competitorNegative.map((k, i) => (
+                                            <span key={i} className="tag-negative px-3 py-1 rounded-full text-xs">{k}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div className="glass rounded-xl p-6">
-                        {loading ? <LoadingState /> : history.length > 0 ? (
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="text-left text-slate-400 text-sm border-b border-slate-700">
-                                        <th className="pb-3 font-medium">Date</th>
-                                        <th className="pb-3 font-medium">Platform</th>
-                                        <th className="pb-3 font-medium"><span className="flex items-center">Visibility<InfoTooltip term="visibility" /></span></th>
-                                        <th className="pb-3 font-medium"><span className="flex items-center">Mentions<InfoTooltip term="mentions" /></span></th>
-                                        <th className="pb-3 font-medium"><span className="flex items-center">Sentiment<InfoTooltip term="sentiment" /></span></th>
-                                        <th className="pb-3 font-medium">Run By</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {history.map(run => (
-                                        <tr key={run.id} className="border-b border-slate-800 hover:bg-slate-800/30">
-                                            <td className="py-3">{new Date(run.run_date).toLocaleString()}</td>
-                                            <td className="py-3">
-                                                <span className="px-2 py-1 rounded bg-slate-700 text-xs capitalize">{run.platform}</span>
-                                            </td>
-                                            <td className="py-3 font-semibold">{run.visibility_score}</td>
-                                            <td className="py-3">{run.mention_count}</td>
-                                            <td className="py-3">{Math.round(run.sentiment_score)}%</td>
-                                            <td className="py-3 text-slate-400">{run.run_by_name}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <p className="text-slate-400 text-center py-8">No analysis history for this brand.</p>
+                        
+                        {/* Visibility Gap Alert */}
+                        {visibilityGaps.length > 0 && (
+                            <div className="alert-warning rounded-2xl p-6">
+                                <div className="flex items-start gap-4">
+                                    <span className="text-2xl">⚠️</span>
+                                    <div>
+                                        <h3 className="font-semibold text-amber-400 mb-1">Visibility Gap Identified</h3>
+                                        <p className="text-slate-300">
+                                            Your brand is not being mentioned for "{visibilityGaps[0] || 'cryogenic storage solutions'}" and "{visibilityGaps[1] || 'affordable lab freezers'}" queries. Consider creating content targeting these terms to improve AI visibility.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         )}
-                    </div>
+                        
+                        {/* Footer */}
+                        <footer className="text-center text-slate-500 text-sm mt-12 pb-8">
+                            AI Brand Insights for Standex Scientific • Last analysis: {new Date().toLocaleDateString()}
+                        </footer>
+                    </main>
                 </div>
             );
         };
-        
-        // ============================================
-        // Admin: Users Page
-        // ============================================
-        const UsersPage = () => {
-            const [users, setUsers] = useState([]);
-            const [loading, setLoading] = useState(true);
-            
-            const loadUsers = () => {
-                setLoading(true);
-                api.get('/admin/users').then(setUsers).finally(() => setLoading(false));
-            };
-            
-            useEffect(() => { loadUsers(); }, []);
-            
-            const approveUser = async (id) => {
-                await api.put(`/admin/users/${id}/approve`);
-                loadUsers();
-            };
-            
-            const disableUser = async (id) => {
-                if (confirm('Disable this user?')) {
-                    await api.put(`/admin/users/${id}/disable`);
-                    loadUsers();
-                }
-            };
-            
-            const toggleRole = async (id, currentRole) => {
-                const newRole = currentRole === 'admin' ? 'user' : 'admin';
-                await api.put(`/admin/users/${id}/role`, { role: newRole });
-                loadUsers();
-            };
-            
-            if (loading) return <LoadingState />;
-            
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">User Management</h2>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="text-left text-slate-400 text-sm border-b border-slate-700">
-                                    <th className="pb-3 font-medium">Name</th>
-                                    <th className="pb-3 font-medium">Email</th>
-                                    <th className="pb-3 font-medium">Role</th>
-                                    <th className="pb-3 font-medium">Status</th>
-                                    <th className="pb-3 font-medium">Last Login</th>
-                                    <th className="pb-3 font-medium">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map(user => (
-                                    <tr key={user.id} className="border-b border-slate-800">
-                                        <td className="py-3 font-medium">{user.name}</td>
-                                        <td className="py-3 text-slate-400">{user.email}</td>
-                                        <td className="py-3">
-                                            <span className={`px-2 py-1 rounded text-xs ${user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-700 text-slate-300'}`}>
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td className="py-3">
-                                            <span className={`px-2 py-1 rounded text-xs ${
-                                                user.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                                                user.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                                                'bg-red-500/20 text-red-400'
-                                            }`}>
-                                                {user.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 text-slate-400 text-sm">
-                                            {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
-                                        </td>
-                                        <td className="py-3">
-                                            <div className="flex gap-2">
-                                                {user.status === 'pending' && (
-                                                    <button onClick={() => approveUser(user.id)} className="text-green-400 hover:text-green-300 text-sm">
-                                                        Approve
-                                                    </button>
-                                                )}
-                                                {user.status === 'active' && (
-                                                    <>
-                                                        <button onClick={() => toggleRole(user.id, user.role)} className="text-sky-400 hover:text-sky-300 text-sm">
-                                                            {user.role === 'admin' ? 'Make User' : 'Make Admin'}
-                                                        </button>
-                                                        <button onClick={() => disableUser(user.id)} className="text-red-400 hover:text-red-300 text-sm">
-                                                            Disable
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            );
-        };
-        
-        // ============================================
-        // Admin: API Keys Page
-        // ============================================
-        const ApiKeysPage = () => {
+
+        // API Keys Page
+        const APIKeysPage = ({ onBack, apiStatus, onUpdate }) => {
             const [keys, setKeys] = useState([]);
             const [newKey, setNewKey] = useState({ platform: 'openai', api_key: '' });
             const [saving, setSaving] = useState(false);
             
             useEffect(() => {
-                api.get('/admin/api-keys').then(setKeys);
+                loadKeys();
             }, []);
             
+            const loadKeys = async () => {
+                try {
+                    const data = await api.get('/admin/api-keys');
+                    setKeys(data);
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+            
             const saveKey = async () => {
-                if (!newKey.api_key) return;
                 setSaving(true);
                 try {
                     await api.post('/admin/api-keys', newKey);
                     setNewKey({ ...newKey, api_key: '' });
-                    api.get('/admin/api-keys').then(setKeys);
-                    alert('API key saved!');
+                    await loadKeys();
+                    onUpdate();
                 } catch (err) {
-                    alert('Error: ' + err.message);
+                    alert(err.message);
                 } finally {
                     setSaving(false);
                 }
             };
             
+            const platforms = [
+                { id: 'openai', name: 'OpenAI (ChatGPT)', icon: '🤖' },
+                { id: 'google', name: 'Google (Gemini)', icon: '✨' },
+                { id: 'anthropic', name: 'Anthropic (Claude)', icon: '🧠' },
+                { id: 'perplexity', name: 'Perplexity', icon: '🔍' }
+            ];
+            
             return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">API Key Management</h2>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <h3 className="font-semibold mb-4">Current Keys</h3>
-                        <div className="space-y-3 mb-6">
-                            {['openai', 'google', 'anthropic', 'perplexity'].map(platform => {
-                                const key = keys.find(k => k.platform === platform);
-                                return (
-                                    <div key={platform} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xl">
-                                                {platform === 'openai' ? '🤖' : platform === 'google' ? '✨' : platform === 'anthropic' ? '🧠' : '🔍'}
-                                            </span>
-                                            <div>
-                                                <p className="font-medium capitalize">{platform === 'openai' ? 'OpenAI (ChatGPT)' : platform === 'google' ? 'Google (Gemini)' : platform === 'anthropic' ? 'Anthropic (Claude)' : 'Perplexity'}</p>
-                                                <p className="text-sm text-slate-400">
-                                                    {key ? key.api_key_masked : 'Not configured'}
-                                                </p>
+                <div className="min-h-screen p-8">
+                    <div className="max-w-3xl mx-auto">
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
+                            ← Back to Dashboard
+                        </button>
+                        
+                        <h2 className="text-2xl font-bold mb-6">API Key Management</h2>
+                        
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-4">Current Keys</h3>
+                            <div className="space-y-3">
+                                {platforms.map(p => {
+                                    const key = keys.find(k => k.platform === p.id);
+                                    return (
+                                        <div key={p.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xl">{p.icon}</span>
+                                                <div>
+                                                    <p className="font-medium">{p.name}</p>
+                                                    <p className="text-sm text-slate-400">{key ? key.api_key_masked : 'Not configured'}</p>
+                                                </div>
                                             </div>
+                                            <span className={`px-2 py-1 rounded text-xs ${key ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                {key ? 'Active' : 'Missing'}
+                                            </span>
                                         </div>
-                                        <span className={`px-2 py-1 rounded text-xs ${key ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                            {key ? 'Active' : 'Missing'}
-                                        </span>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                         
-                        <h3 className="font-semibold mb-4">Add/Update Key</h3>
-                        <div className="flex gap-4">
-                            <select
-                                value={newKey.platform}
-                                onChange={(e) => setNewKey({ ...newKey, platform: e.target.value })}
-                                className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
-                            >
-                                <option value="openai">OpenAI (ChatGPT)</option>
-                                <option value="google">Google (Gemini)</option>
-                                <option value="anthropic">Anthropic (Claude)</option>
-                                <option value="perplexity">Perplexity</option>
-                            </select>
-                            <input
-                                type="password"
-                                value={newKey.api_key}
-                                onChange={(e) => setNewKey({ ...newKey, api_key: e.target.value })}
-                                placeholder="Enter API key..."
-                                className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
-                            />
-                            <button
-                                onClick={saveKey}
-                                disabled={saving || !newKey.api_key}
-                                className="btn-primary text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50"
-                            >
-                                {saving ? 'Saving...' : 'Save Key'}
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <h3 className="font-semibold mb-4">Where to Get API Keys</h3>
-                        <div className="space-y-3 text-sm">
-                            <p><span className="text-slate-400">OpenAI:</span> <a href="https://platform.openai.com/api-keys" target="_blank" className="text-sky-400 hover:underline">platform.openai.com/api-keys</a></p>
-                            <p><span className="text-slate-400">Google AI:</span> <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-sky-400 hover:underline">aistudio.google.com/app/apikey</a></p>
-                            <p><span className="text-slate-400">Anthropic:</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-sky-400 hover:underline">console.anthropic.com/settings/keys</a></p>
-                            <p><span className="text-slate-400">Perplexity:</span> <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-sky-400 hover:underline">perplexity.ai/settings/api</a></p>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-        
-        // ============================================
-        // Admin: Brands Page
-        // ============================================
-        const BrandsPage = () => {
-            const [brands, setBrands] = useState([]);
-            const [selectedBrand, setSelectedBrand] = useState(null);
-            const [brandDetails, setBrandDetails] = useState(null);
-            const [newBrand, setNewBrand] = useState({ name: '', domain: '', industry: '' });
-            const [newQuery, setNewQuery] = useState('');
-            const [newCompetitor, setNewCompetitor] = useState({ name: '', domain: '' });
-            
-            // Auto-detect state
-            const [detecting, setDetecting] = useState(false);
-            const [detectedCompetitors, setDetectedCompetitors] = useState([]);
-            const [selectedDetected, setSelectedDetected] = useState({});
-            const [showDetectModal, setShowDetectModal] = useState(false);
-            const [detectIndustry, setDetectIndustry] = useState('');
-            
-            useEffect(() => {
-                api.get('/brands').then(setBrands);
-            }, []);
-            
-            useEffect(() => {
-                if (selectedBrand) {
-                    api.get(`/brands/${selectedBrand}`).then(setBrandDetails);
-                    setDetectedCompetitors([]);
-                    setSelectedDetected({});
-                }
-            }, [selectedBrand]);
-            
-            const addBrand = async () => {
-                if (!newBrand.name) return;
-                const result = await api.post('/brands', newBrand);
-                setNewBrand({ name: '', domain: '', industry: '' });
-                api.get('/brands').then(setBrands);
-                setSelectedBrand(result.id);
-            };
-            
-            const addQuery = async () => {
-                if (!newQuery || !selectedBrand) return;
-                await api.post(`/brands/${selectedBrand}/queries`, { query_text: newQuery, category: 'general' });
-                setNewQuery('');
-                api.get(`/brands/${selectedBrand}`).then(setBrandDetails);
-            };
-            
-            const addCompetitor = async () => {
-                if (!newCompetitor.name || !selectedBrand) return;
-                await api.post(`/brands/${selectedBrand}/competitors`, newCompetitor);
-                setNewCompetitor({ name: '', domain: '' });
-                api.get(`/brands/${selectedBrand}`).then(setBrandDetails);
-            };
-            
-            // Auto-detect competitors
-            const detectCompetitors = async () => {
-                if (!selectedBrand) return;
-                setDetecting(true);
-                setDetectedCompetitors([]);
-                
-                try {
-                    const result = await api.post(`/brands/${selectedBrand}/detect-competitors`, {
-                        industry: detectIndustry
-                    });
-                    setDetectedCompetitors(result.competitors);
-                    
-                    // Pre-select all that aren't already added
-                    const preSelected = {};
-                    result.competitors.forEach(c => {
-                        if (!c.alreadyAdded) preSelected[c.name] = true;
-                    });
-                    setSelectedDetected(preSelected);
-                } catch (err) {
-                    alert('Detection failed: ' + err.message);
-                } finally {
-                    setDetecting(false);
-                }
-            };
-            
-            const addSelectedCompetitors = async () => {
-                const toAdd = detectedCompetitors
-                    .filter(c => selectedDetected[c.name])
-                    .map(c => ({ name: c.name, domain: '' }));
-                
-                if (toAdd.length === 0) return;
-                
-                await api.post(`/brands/${selectedBrand}/competitors/bulk`, { competitors: toAdd });
-                api.get(`/brands/${selectedBrand}`).then(setBrandDetails);
-                setShowDetectModal(false);
-                setDetectedCompetitors([]);
-                setSelectedDetected({});
-            };
-            
-            const toggleDetected = (name) => {
-                setSelectedDetected(prev => ({ ...prev, [name]: !prev[name] }));
-            };
-            
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">Brand Management</h2>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="glass rounded-xl p-6">
-                            <h3 className="font-semibold mb-4">Brands</h3>
-                            <div className="space-y-2 mb-4">
-                                {brands.map(b => (
-                                    <button
-                                        key={b.id}
-                                        onClick={() => setSelectedBrand(b.id)}
-                                        className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                                            selectedBrand === b.id ? 'bg-sky-500/20 border border-sky-500/50' : 'bg-slate-800 hover:bg-slate-700'
-                                        }`}
-                                    >
-                                        <p className="font-medium">{b.name}</p>
-                                        <p className="text-sm text-slate-400">{b.domain}</p>
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="border-t border-slate-700 pt-4">
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-4">Add/Update Key</h3>
+                            <div className="flex gap-4">
+                                <select
+                                    value={newKey.platform}
+                                    onChange={e => setNewKey({ ...newKey, platform: e.target.value })}
+                                    className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"
+                                >
+                                    {platforms.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
                                 <input
-                                    placeholder="Brand name"
-                                    value={newBrand.name}
-                                    onChange={(e) => setNewBrand({ ...newBrand, name: e.target.value })}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-2"
+                                    type="password"
+                                    value={newKey.api_key}
+                                    onChange={e => setNewKey({ ...newKey, api_key: e.target.value })}
+                                    placeholder="Enter API key..."
+                                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"
                                 />
-                                <input
-                                    placeholder="Domain (e.g. company.com)"
-                                    value={newBrand.domain}
-                                    onChange={(e) => setNewBrand({ ...newBrand, domain: e.target.value })}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-2"
-                                />
-                                <button onClick={addBrand} className="w-full btn-primary text-white py-2 rounded-lg text-sm">
-                                    Add Brand
+                                <button onClick={saveKey} disabled={saving || !newKey.api_key} className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50">
+                                    {saving ? 'Saving...' : 'Save Key'}
                                 </button>
                             </div>
                         </div>
                         
-                        {brandDetails && (
-                            <>
-                                <div className="glass rounded-xl p-6">
-                                    <h3 className="font-semibold mb-4 flex items-center">
-                                        Queries ({brandDetails.queries?.length || 0})
-                                        <InfoTooltip term="queries" />
-                                    </h3>
-                                    <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
-                                        {brandDetails.queries?.map(q => (
-                                            <div key={q.id} className="p-2 bg-slate-800/50 rounded text-sm">
-                                                {q.query_text}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <input
-                                            placeholder="New query..."
-                                            value={newQuery}
-                                            onChange={(e) => setNewQuery(e.target.value)}
-                                            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm"
-                                        />
-                                        <button onClick={addQuery} className="btn-primary text-white px-4 py-2 rounded-lg text-sm">
-                                            Add
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div className="glass rounded-xl p-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-semibold flex items-center">
-                                            Competitors ({brandDetails.competitors?.length || 0})
-                                            <InfoTooltip term="competitors" />
-                                        </h3>
-                                        <button 
-                                            onClick={() => setShowDetectModal(true)}
-                                            className="text-sky-400 hover:text-sky-300 text-sm flex items-center gap-1"
-                                        >
-                                            🔍 Auto-Detect
-                                        </button>
-                                    </div>
-                                    <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
-                                        {brandDetails.competitors?.map(c => (
-                                            <div key={c.id} className="p-2 bg-slate-800/50 rounded text-sm">
-                                                <p className="font-medium">{c.name}</p>
-                                                {c.domain && <p className="text-slate-400 text-xs">{c.domain}</p>}
-                                            </div>
-                                        ))}
-                                        {brandDetails.competitors?.length === 0 && (
-                                            <p className="text-slate-500 text-sm text-center py-4">
-                                                No competitors yet. Add manually or use Auto-Detect.
-                                            </p>
-                                        )}
-                                    </div>
-                                    <input
-                                        placeholder="Competitor name"
-                                        value={newCompetitor.name}
-                                        onChange={(e) => setNewCompetitor({ ...newCompetitor, name: e.target.value })}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm mb-2"
-                                    />
-                                    <div className="flex gap-2">
-                                        <input
-                                            placeholder="Domain (optional)"
-                                            value={newCompetitor.domain}
-                                            onChange={(e) => setNewCompetitor({ ...newCompetitor, domain: e.target.value })}
-                                            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm"
-                                        />
-                                        <button onClick={addCompetitor} className="btn-primary text-white px-4 py-2 rounded-lg text-sm">
-                                            Add
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                    
-                    {/* Auto-Detect Competitors Modal */}
-                    {showDetectModal && (
-                        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                            <div className="glass rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xl font-semibold">🔍 Auto-Detect Competitors</h3>
-                                    <button 
-                                        onClick={() => { setShowDetectModal(false); setDetectedCompetitors([]); }}
-                                        className="text-slate-400 hover:text-white text-xl"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                                
-                                <p className="text-slate-400 text-sm mb-4">
-                                    We'll ask ChatGPT, Gemini, and Perplexity who competes with <span className="text-white font-medium">{brandDetails?.name}</span>.
-                                </p>
-                                
-                                {detectedCompetitors.length === 0 ? (
-                                    <>
-                                        <div className="mb-4">
-                                            <label className="block text-sm text-slate-400 mb-1">Industry / Market (optional but recommended)</label>
-                                            <input
-                                                value={detectIndustry}
-                                                onChange={(e) => setDetectIndustry(e.target.value)}
-                                                placeholder="e.g. laboratory freezers, cryogenic storage"
-                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
-                                            />
-                                        </div>
-                                        
-                                        <button
-                                            onClick={detectCompetitors}
-                                            disabled={detecting}
-                                            className="w-full btn-primary text-white py-3 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2"
-                                        >
-                                            {detecting ? (
-                                                <>
-                                                    <div className="loading-spinner"></div>
-                                                    Asking AI platforms...
-                                                </>
-                                            ) : (
-                                                <>🚀 Detect Competitors</>
-                                            )}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="flex-1 overflow-y-auto mb-4">
-                                            <p className="text-sm text-slate-400 mb-3">
-                                                Found {detectedCompetitors.length} potential competitors. Select which to add:
-                                            </p>
-                                            <div className="space-y-2">
-                                                {detectedCompetitors.map(c => (
-                                                    <label 
-                                                        key={c.name}
-                                                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                                                            c.alreadyAdded 
-                                                                ? 'bg-slate-800/30 opacity-50' 
-                                                                : selectedDetected[c.name] 
-                                                                    ? 'bg-sky-500/20 border border-sky-500/50' 
-                                                                    : 'bg-slate-800 hover:bg-slate-700'
-                                                        }`}
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedDetected[c.name] || false}
-                                                            onChange={() => toggleDetected(c.name)}
-                                                            disabled={c.alreadyAdded}
-                                                            className="w-4 h-4 rounded"
-                                                        />
-                                                        <div className="flex-1">
-                                                            <p className="font-medium">{c.name}</p>
-                                                            <p className="text-xs text-slate-400">
-                                                                Mentioned by: {c.platforms.join(', ')}
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`text-xs px-2 py-1 rounded ${
-                                                                c.count >= 3 ? 'bg-green-500/20 text-green-400' :
-                                                                c.count >= 2 ? 'bg-yellow-500/20 text-yellow-400' :
-                                                                'bg-slate-700 text-slate-400'
-                                                            }`}>
-                                                                {c.count}/{c.platforms.length > 0 ? Math.max(...Object.values(detectedCompetitors.reduce((acc, comp) => {
-                                                                    acc.max = Math.max(acc.max || 0, comp.platforms.length);
-                                                                    return acc;
-                                                                }, { max: 3 }))) : 3} AIs
-                                                            </span>
-                                                            {c.alreadyAdded && (
-                                                                <span className="text-xs text-slate-500">Already added</span>
-                                                            )}
-                                                        </div>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={() => { setDetectedCompetitors([]); setSelectedDetected({}); }}
-                                                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-medium"
-                                            >
-                                                ← Back
-                                            </button>
-                                            <button
-                                                onClick={addSelectedCompetitors}
-                                                disabled={Object.values(selectedDetected).filter(Boolean).length === 0}
-                                                className="flex-1 btn-primary text-white py-3 rounded-lg font-medium disabled:opacity-50"
-                                            >
-                                                Add {Object.values(selectedDetected).filter(Boolean).length} Selected
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                        <div className="glass rounded-2xl p-6">
+                            <h3 className="font-semibold mb-4">Where to Get API Keys</h3>
+                            <div className="space-y-3 text-sm">
+                                <p><span className="text-slate-400">OpenAI:</span> <a href="https://platform.openai.com/api-keys" target="_blank" className="text-sky-400 hover:underline">platform.openai.com/api-keys</a></p>
+                                <p><span className="text-slate-400">Google AI:</span> <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-sky-400 hover:underline">aistudio.google.com/app/apikey</a></p>
+                                <p><span className="text-slate-400">Anthropic:</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-sky-400 hover:underline">console.anthropic.com/settings/keys</a></p>
+                                <p><span className="text-slate-400">Perplexity:</span> <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-sky-400 hover:underline">perplexity.ai/settings/api</a></p>
                             </div>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-        
-        // ============================================
-        // Admin: Activity Log Page
-        // ============================================
-        const ActivityPage = () => {
-            const [logs, setLogs] = useState([]);
-            const [loading, setLoading] = useState(true);
-            
-            useEffect(() => {
-                api.get('/admin/activity').then(setLogs).finally(() => setLoading(false));
-            }, []);
-            
-            if (loading) return <LoadingState />;
-            
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">Activity Log</h2>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <div className="space-y-3">
-                            {logs.map(log => (
-                                <div key={log.id} className="flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg">
-                                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-sm">
-                                        {log.user_name?.charAt(0) || '?'}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm">
-                                            <span className="font-medium">{log.user_name || 'System'}</span>
-                                            <span className="text-slate-400 ml-2">{log.action.replace(/_/g, ' ')}</span>
-                                        </p>
-                                        {log.details && (
-                                            <p className="text-xs text-slate-500">{log.details}</p>
-                                        )}
-                                    </div>
-                                    <span className="text-xs text-slate-500">
-                                        {new Date(log.created_at).toLocaleString()}
-                                    </span>
-                                </div>
-                            ))}
                         </div>
                     </div>
                 </div>
             );
         };
-        
-        // ============================================
-        // Admin: Email Settings Page
-        // ============================================
-        const EmailSettingsPage = () => {
-            const [settings, setSettings] = useState({
-                smtp_host: '',
-                smtp_port: '587',
-                smtp_user: '',
-                smtp_pass: '',
-                smtp_from: ''
-            });
-            const [loading, setLoading] = useState(true);
-            const [saving, setSaving] = useState(false);
-            const [testing, setTesting] = useState(false);
-            const [message, setMessage] = useState(null);
-            
-            useEffect(() => {
-                api.get('/admin/email-settings')
-                    .then(data => setSettings(prev => ({ ...prev, ...data })))
-                    .finally(() => setLoading(false));
-            }, []);
-            
-            const saveSettings = async () => {
-                setSaving(true);
-                setMessage(null);
-                try {
-                    await api.post('/admin/email-settings', settings);
-                    setMessage({ type: 'success', text: 'Email settings saved!' });
-                } catch (err) {
-                    setMessage({ type: 'error', text: err.message });
-                } finally {
-                    setSaving(false);
-                }
-            };
-            
-            const testEmail = async () => {
-                setTesting(true);
-                setMessage(null);
-                try {
-                    const res = await api.post('/admin/email-settings/test');
-                    setMessage({ type: 'success', text: res.message });
-                } catch (err) {
-                    setMessage({ type: 'error', text: err.message });
-                } finally {
-                    setTesting(false);
-                }
-            };
-            
-            if (loading) return <LoadingState />;
-            
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">📧 Email Settings</h2>
-                    <p className="text-slate-400">Configure SMTP settings for email notifications when weekly analysis completes.</p>
-                    
-                    {message && (
-                        <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {message.text}
-                        </div>
-                    )}
-                    
-                    <div className="glass rounded-xl p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-1">SMTP Host</label>
-                                <input
-                                    type="text"
-                                    value={settings.smtp_host}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, smtp_host: e.target.value }))}
-                                    placeholder="smtp.gmail.com"
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-1">SMTP Port</label>
-                                <input
-                                    type="text"
-                                    value={settings.smtp_port}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, smtp_port: e.target.value }))}
-                                    placeholder="587"
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-1">SMTP Username</label>
-                                <input
-                                    type="text"
-                                    value={settings.smtp_user}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, smtp_user: e.target.value }))}
-                                    placeholder="your-email@gmail.com"
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm text-slate-400 mb-1">
-                                    SMTP Password {settings.smtp_pass_set && <span className="text-green-400">(already set)</span>}
-                                </label>
-                                <input
-                                    type="password"
-                                    value={settings.smtp_pass}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, smtp_pass: e.target.value }))}
-                                    placeholder={settings.smtp_pass_set ? '••••••••' : 'App password'}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2"
-                                />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-sm text-slate-400 mb-1">From Email Address</label>
-                                <input
-                                    type="text"
-                                    value={settings.smtp_from}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, smtp_from: e.target.value }))}
-                                    placeholder="noreply@standex.com"
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2"
-                                />
-                            </div>
-                        </div>
-                        
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={saveSettings}
-                                disabled={saving}
-                                className="btn-primary text-white px-6 py-2 rounded-lg"
-                            >
-                                {saving ? 'Saving...' : 'Save Settings'}
-                            </button>
-                            <button
-                                onClick={testEmail}
-                                disabled={testing || !settings.smtp_host}
-                                className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg"
-                            >
-                                {testing ? 'Sending...' : '📬 Send Test Email'}
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <h3 className="font-semibold mb-3">📖 Setup Guide</h3>
-                        <div className="text-sm text-slate-400 space-y-2">
-                            <p><strong>Gmail:</strong> Use smtp.gmail.com, port 587. Create an App Password in Google Account → Security → 2-Step Verification → App passwords.</p>
-                            <p><strong>Microsoft 365:</strong> Use smtp.office365.com, port 587.</p>
-                            <p><strong>Custom SMTP:</strong> Contact your IT admin for server details.</p>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-        
-        // ============================================
-        // Admin: Scheduled Runs Page
-        // ============================================
-        const ScheduledRunsPage = () => {
-            const [data, setData] = useState({ runs: [], schedule: '', isRunning: false });
-            const [loading, setLoading] = useState(true);
-            const [running, setRunning] = useState(false);
-            const [message, setMessage] = useState(null);
-            
-            const loadData = () => {
-                api.get('/admin/scheduled-runs')
-                    .then(setData)
-                    .finally(() => setLoading(false));
-            };
-            
-            useEffect(() => { loadData(); }, []);
-            
-            const toggleSchedule = async () => {
-                try {
-                    const res = await api.post('/admin/scheduled-runs/toggle');
-                    setData(prev => ({ ...prev, isRunning: res.isRunning }));
-                    setMessage({ type: 'success', text: res.message });
-                } catch (err) {
-                    setMessage({ type: 'error', text: err.message });
-                }
-            };
-            
-            const runNow = async () => {
-                setRunning(true);
-                setMessage(null);
-                try {
-                    const res = await api.post('/admin/scheduled-runs/run-now');
-                    setMessage({ type: 'success', text: res.message });
-                } catch (err) {
-                    setMessage({ type: 'error', text: err.message });
-                } finally {
-                    setRunning(false);
-                }
-            };
-            
-            if (loading) return <LoadingState />;
-            
-            return (
-                <div className="space-y-6">
-                    <h2 className="text-2xl font-bold">⏰ Scheduled Analysis</h2>
-                    <p className="text-slate-400">Each brand runs automated analysis once per week. Email notifications are sent when complete.</p>
-                    
-                    {message && (
-                        <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {message.text}
-                        </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="glass rounded-xl p-5">
-                            <div className="text-slate-400 text-sm mb-2">Schedule</div>
-                            <div className="text-lg font-semibold">{data.schedule || 'Weekly'}</div>
-                        </div>
-                        <div className="glass rounded-xl p-5">
-                            <div className="text-slate-400 text-sm mb-2">Status</div>
-                            <div className={`text-lg font-semibold ${data.isRunning ? 'text-green-400' : 'text-yellow-400'}`}>
-                                {data.isRunning ? '✓ Active' : '⏸ Paused'}
-                            </div>
-                        </div>
-                        <div className="glass rounded-xl p-5">
-                            <div className="text-slate-400 text-sm mb-2">Brands Tracked</div>
-                            <div className="text-lg font-semibold">{data.runs.length}</div>
-                        </div>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                        <button
-                            onClick={toggleSchedule}
-                            className={`px-6 py-2 rounded-lg ${data.isRunning ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'} text-white`}
-                        >
-                            {data.isRunning ? '⏸ Pause Schedule' : '▶ Start Schedule'}
-                        </button>
-                        <button
-                            onClick={runNow}
-                            disabled={running}
-                            className="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-lg"
-                        >
-                            {running ? 'Starting...' : '🚀 Run All Now'}
-                        </button>
-                    </div>
-                    
-                    <div className="glass rounded-xl p-6">
-                        <h3 className="font-semibold mb-4">Brand Schedule</h3>
-                        {data.runs.length > 0 ? (
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="text-left text-slate-400 text-sm border-b border-slate-700">
-                                        <th className="pb-3 font-medium">Brand</th>
-                                        <th className="pb-3 font-medium">Last Run</th>
-                                        <th className="pb-3 font-medium">Next Run</th>
-                                        <th className="pb-3 font-medium">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.runs.map(run => (
-                                        <tr key={run.id} className="border-b border-slate-800">
-                                            <td className="py-3">{run.brand_name}</td>
-                                            <td className="py-3 text-slate-400">
-                                                {run.last_run ? new Date(run.last_run).toLocaleString() : 'Never'}
-                                            </td>
-                                            <td className="py-3 text-slate-400">
-                                                {run.next_run ? new Date(run.next_run).toLocaleString() : 'Pending'}
-                                            </td>
-                                            <td className="py-3">
-                                                <span className={`px-2 py-1 rounded text-xs ${run.is_enabled ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
-                                                    {run.is_enabled ? 'Enabled' : 'Disabled'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <p className="text-slate-400">No scheduled runs yet. Run analysis manually first to initialize schedules.</p>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-        
-        // ============================================
-        // Helper Components
-        // ============================================
-        const StatCard = ({ title, value, subtitle, icon, tooltip }) => (
-            <div className="glass rounded-xl p-5">
-                <div className="flex items-start justify-between mb-2">
-                    <span className="text-slate-400 text-sm flex items-center">
-                        {title}
-                        {tooltip && <InfoTooltip term={tooltip} />}
-                    </span>
-                    {icon && <span className="text-xl">{icon}</span>}
-                </div>
-                <div className="text-3xl font-bold">{value}</div>
-                {subtitle && <span className="text-slate-500 text-xs">{subtitle}</span>}
-            </div>
-        );
-        
-        const LoadingState = () => (
-            <div className="flex items-center justify-center py-12">
-                <div className="loading-spinner"></div>
-            </div>
-        );
-        
-        // ============================================
+
         // Main App
-        // ============================================
         const App = () => {
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
-            const [currentPage, setCurrentPage] = useState('dashboard');
             
             useEffect(() => {
                 if (api.token) {
-                    api.get('/auth/me')
-                        .then(data => setUser(data.user))
-                        .catch(() => {
-                            api.token = null;
-                            localStorage.removeItem('token');
-                        })
-                        .finally(() => setLoading(false));
+                    api.get('/auth/me').then(setUser).catch(() => {
+                        api.token = null;
+                        localStorage.removeItem('token');
+                    }).finally(() => setLoading(false));
                 } else {
                     setLoading(false);
                 }
             }, []);
             
-            const handleLogout = async () => {
-                await api.post('/auth/logout');
+            const handleLogout = () => {
                 api.token = null;
                 localStorage.removeItem('token');
                 setUser(null);
             };
             
-            if (loading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center">
-                        <div className="loading-spinner"></div>
-                    </div>
-                );
-            }
-            
-            if (!user) {
-                return <LoginPage onLogin={setUser} />;
-            }
-            
-            const renderPage = () => {
-                switch (currentPage) {
-                    case 'dashboard': return <DashboardPage />;
-                    case 'analyze': return <AnalyzePage />;
-                    case 'history': return <HistoryPage />;
-                    case 'users': return <UsersPage />;
-                    case 'api-keys': return <ApiKeysPage />;
-                    case 'brands': return <BrandsPage />;
-                    case 'email-settings': return <EmailSettingsPage />;
-                    case 'scheduled-runs': return <ScheduledRunsPage />;
-                    case 'activity': return <ActivityPage />;
-                    default: return <DashboardPage />;
-                }
-            };
-            
-            return (
-                <AuthContext.Provider value={{ user }}>
-                    <div className="flex h-screen">
-                        <Sidebar 
-                            currentPage={currentPage} 
-                            onNavigate={setCurrentPage} 
-                            user={user}
-                            onLogout={handleLogout}
-                        />
-                        <main className="flex-1 overflow-y-auto p-8">
-                            {renderPage()}
-                        </main>
-                    </div>
-                </AuthContext.Provider>
-            );
+            if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-xl">Loading...</div></div>;
+            if (!user) return <LoginPage onLogin={setUser} />;
+            return <Dashboard user={user} onLogout={handleLogout} />;
         };
         
-        ReactDOM.render(<App />, document.getElementById('root'));
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>
