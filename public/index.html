@@ -893,7 +893,7 @@
                         )}
                         
                         {/* Website Crawler Activity (from WordPress) */}
-                        {crawlerStats && (crawlerStats.totalCrawlerVisits > 0 || crawlerStats.totalReferralVisits > 0) && (
+                        {crawlerStats && crawlerStats.totalCrawlerVisits > 0 && (
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="flex justify-between items-center mb-4">
                                     <div>
@@ -919,20 +919,39 @@
                                         <div className="text-slate-400 text-sm">AI Companies</div>
                                     </div>
                                     <div className="bg-slate-800/50 rounded-xl p-4 text-center">
-                                        <div className="text-3xl font-bold text-purple-400">{crawlerStats.topPages?.length || 0}</div>
-                                        <div className="text-slate-400 text-sm">Pages Crawled</div>
+                                        <div className="text-3xl font-bold text-purple-400">{crawlerStats.bySite?.length || 0}</div>
+                                        <div className="text-slate-400 text-sm">Sites Tracked</div>
                                     </div>
                                 </div>
                                 
-                                {crawlerStats.byCompany && crawlerStats.byCompany.length > 0 && (
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* By Site Breakdown */}
+                                {crawlerStats.bySite && crawlerStats.bySite.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Activity by Site</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {crawlerStats.bySite.map((s, i) => (
+                                                <div key={i} className="bg-slate-800/30 rounded-lg p-4">
+                                                    <div className="font-medium text-white mb-1">{s.site_domain}</div>
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-slate-400">Bot visits:</span>
+                                                        <span className="text-sky-400 font-semibold">{s.visits}</span>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 mt-1">{s.companies}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {crawlerStats.byCompany && crawlerStats.byCompany.length > 0 && (
                                         <div>
                                             <h4 className="text-sm font-medium text-slate-400 mb-3">Crawlers by Company</h4>
                                             <div className="space-y-2">
                                                 {crawlerStats.byCompany.slice(0, 5).map((c, i) => (
                                                     <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
                                                         <span className="flex items-center gap-2">
-                                                            <span>{c.company === 'OpenAI' ? '🤖' : c.company === 'Anthropic' ? '🧠' : c.company === 'Google' ? '✨' : c.company === 'Perplexity' ? '🔍' : '🌐'}</span>
+                                                            <span>{c.company === 'OpenAI' ? '🤖' : c.company === 'Anthropic' ? '🧠' : c.company === 'Google' ? '✨' : c.company === 'Perplexity' ? '🔍' : c.company === 'Amazon' ? '📦' : '🌐'}</span>
                                                             {c.company}
                                                         </span>
                                                         <span className="font-semibold">{c.visits.toLocaleString()}</span>
@@ -940,24 +959,24 @@
                                                 ))}
                                             </div>
                                         </div>
-                                        
-                                        {crawlerStats.topPages && crawlerStats.topPages.length > 0 && (
-                                            <div>
-                                                <h4 className="text-sm font-medium text-slate-400 mb-3">Most Crawled Pages</h4>
-                                                <div className="space-y-2">
-                                                    {crawlerStats.topPages.slice(0, 5).map((p, i) => (
-                                                        <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-                                                            <span className="text-sm truncate max-w-xs" title={p.page_url}>
-                                                                {p.page_url?.replace(/^https?:\/\/[^\/]+/, '') || '/'}
-                                                            </span>
-                                                            <span className="font-semibold text-sky-400">{p.visits}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                    )}
+                                    
+                                    {crawlerStats.topPages && crawlerStats.topPages.length > 0 && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-slate-400 mb-3">Most Crawled Pages</h4>
+                                            <div className="space-y-2">
+                                                {crawlerStats.topPages.slice(0, 5).map((p, i) => (
+                                                    <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                                                        <span className="text-sm truncate max-w-xs" title={p.page_url}>
+                                                            {p.page_url?.replace(/^https?:\/\/[^\/]+/, '') || '/'}
+                                                        </span>
+                                                        <span className="font-semibold text-sky-400">{p.visits}</span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        )}
-                                    </div>
-                                )}
+                                        </div>
+                                    )}
+                                </div>
                                 
                                 {crawlerStats.referralsByPlatform && crawlerStats.referralsByPlatform.length > 0 && (
                                     <div className="mt-6 pt-6 border-t border-slate-700">
@@ -976,7 +995,7 @@
                         )}
                         
                         {/* No crawler data - prompt to set up */}
-                        {crawlerStats && crawlerStats.totalCrawlerVisits === 0 && crawlerStats.totalReferralVisits === 0 && (
+                        {(!crawlerStats || crawlerStats.totalCrawlerVisits === 0) && (
                             <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
                                 <div className="text-center py-4">
                                     <span className="text-4xl mb-4 block">🌐</span>
@@ -1421,13 +1440,34 @@
                                     </div>
                                 </div>
                                 
-                                {crawlerStats.byCompany.length > 0 && (
+                                {/* By Site */}
+                                {crawlerStats.bySite && crawlerStats.bySite.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-2">By Site</h4>
+                                        <div className="space-y-2">
+                                            {crawlerStats.bySite.map((s, i) => (
+                                                <div key={i} className="flex justify-between items-center p-3 bg-slate-800/30 rounded-lg">
+                                                    <div>
+                                                        <span className="font-medium">{s.site_domain}</span>
+                                                        <span className="text-slate-500 text-xs ml-2">({s.companies})</span>
+                                                    </div>
+                                                    <span className="font-bold text-sky-400">{s.visits}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {crawlerStats.byCompany && crawlerStats.byCompany.length > 0 && (
                                     <div>
                                         <h4 className="text-sm font-medium text-slate-400 mb-2">By Company</h4>
                                         <div className="space-y-2">
                                             {crawlerStats.byCompany.map((c, i) => (
                                                 <div key={i} className="flex justify-between items-center p-2 bg-slate-800/30 rounded">
-                                                    <span>{c.company}</span>
+                                                    <span className="flex items-center gap-2">
+                                                        <span>{c.company === 'OpenAI' ? '🤖' : c.company === 'Anthropic' ? '🧠' : c.company === 'Google' ? '✨' : c.company === 'Amazon' ? '📦' : '🌐'}</span>
+                                                        {c.company}
+                                                    </span>
                                                     <span className="font-medium">{c.visits.toLocaleString()}</span>
                                                 </div>
                                             ))}
@@ -1446,7 +1486,7 @@
                                 <li>In WordPress, go to <strong>AI Crawlers → Settings</strong></li>
                                 <li>Enable "Sync to AI Brand Insights Pro"</li>
                                 <li>Paste the Railway URL and API Key</li>
-                                <li>Click Save - data will sync every 5 minutes</li>
+                                <li>Click Save - data will sync daily (use Sync Now for immediate)</li>
                             </ol>
                         </div>
                     </div>
