@@ -424,6 +424,20 @@
                                     ))}
                                 </select>
                                 
+                                {/* Refresh Data button */}
+                                <button
+                                    onClick={() => {
+                                        loadBrandAnalysis(selectedBrand);
+                                        loadHistory(selectedBrand);
+                                        const brand = brands.find(b => b.id == selectedBrand);
+                                        loadCrawlerStats(brand?.domain);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 hover:bg-slate-600 transition-colors"
+                                    title="Refresh Data"
+                                >
+                                    🔄 Refresh
+                                </button>
+                                
                                 {/* Run Analysis button */}
                                 <button
                                     onClick={runAnalysis}
@@ -1207,6 +1221,9 @@
             const [brandDetails, setBrandDetails] = useState(null);
             const [newCompetitor, setNewCompetitor] = useState('');
             const [saving, setSaving] = useState(false);
+            const [editingBrand, setEditingBrand] = useState(null);
+            const [editName, setEditName] = useState('');
+            const [editDomain, setEditDomain] = useState('');
             
             useEffect(() => {
                 if (brands.length > 0 && !selectedBrand) {
@@ -1226,6 +1243,27 @@
                     setBrandDetails(data);
                 } catch (err) {
                     console.error(err);
+                }
+            };
+            
+            const startEditBrand = (brand) => {
+                setEditingBrand(brand.id);
+                setEditName(brand.name);
+                setEditDomain(brand.domain || '');
+            };
+            
+            const saveBrandEdit = async () => {
+                if (!editName.trim()) return;
+                setSaving(true);
+                try {
+                    await api.put(`/brands/${editingBrand}`, { name: editName.trim(), domain: editDomain.trim() });
+                    setEditingBrand(null);
+                    await loadBrandDetails(selectedBrand);
+                    onUpdate();
+                } catch (err) {
+                    alert('Failed to update brand: ' + err.message);
+                } finally {
+                    setSaving(false);
                 }
             };
             
@@ -1268,17 +1306,54 @@
                                 <h3 className="font-semibold mb-4">Brands</h3>
                                 <div className="space-y-2">
                                     {brands.map(b => (
-                                        <button
-                                            key={b.id}
-                                            onClick={() => setSelectedBrand(b.id)}
-                                            className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                                                selectedBrand === b.id 
-                                                    ? 'bg-sky-500/20 border border-sky-500/50' 
-                                                    : 'bg-slate-800/50 hover:bg-slate-700/50'
-                                            }`}
-                                        >
-                                            {b.name}
-                                        </button>
+                                        <div key={b.id} className={`rounded-lg transition-colors ${
+                                            selectedBrand === b.id 
+                                                ? 'bg-sky-500/20 border border-sky-500/50' 
+                                                : 'bg-slate-800/50 hover:bg-slate-700/50'
+                                        }`}>
+                                            {editingBrand === b.id ? (
+                                                <div className="p-3 space-y-2">
+                                                    <input
+                                                        type="text"
+                                                        value={editName}
+                                                        onChange={(e) => setEditName(e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm"
+                                                        placeholder="Brand name"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={editDomain}
+                                                        onChange={(e) => setEditDomain(e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm"
+                                                        placeholder="Domain (e.g. example.com)"
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <button onClick={saveBrandEdit} disabled={saving} className="flex-1 bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-sm">
+                                                            {saving ? '...' : 'Save'}
+                                                        </button>
+                                                        <button onClick={() => setEditingBrand(null)} className="flex-1 bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-sm">
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-between px-4 py-3">
+                                                    <button
+                                                        onClick={() => setSelectedBrand(b.id)}
+                                                        className="text-left flex-1"
+                                                    >
+                                                        {b.name}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => startEditBrand(b)}
+                                                        className="text-slate-400 hover:text-white p-1"
+                                                        title="Edit brand"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             </div>
