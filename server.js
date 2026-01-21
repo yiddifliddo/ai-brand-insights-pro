@@ -2091,20 +2091,29 @@ app.post('/api/webhook/crawler', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
+    console.log(`📥 Crawler sync from ${site.domain}: ${visits.length} visits received`);
+    
+    // Use INSERT OR IGNORE to handle duplicates gracefully
     const stmt = db.prepare(`
-        INSERT INTO crawler_visits (site_domain, bot_name, company, bot_type, page_url, page_title, ip_address, visited_at)
+        INSERT OR IGNORE INTO crawler_visits (site_domain, bot_name, company, bot_type, page_url, page_title, ip_address, visited_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     let inserted = 0;
+    let skipped = 0;
     for (const v of visits) {
         try {
-            stmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
-            inserted++;
-        } catch (e) {}
+            const result = stmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
+            if (result.changes > 0) inserted++;
+            else skipped++;
+        } catch (e) {
+            console.error(`❌ Crawler insert error: ${e.message}`);
+            skipped++;
+        }
     }
     
-    res.json({ success: true, inserted });
+    console.log(`✅ Crawler sync complete: ${inserted} inserted, ${skipped} skipped/duplicates`);
+    res.json({ success: true, inserted, skipped, received: visits.length });
 });
 
 // Webhook: Receive referral visits from WordPress
@@ -2207,6 +2216,34 @@ app.get('/api/crawler-stats', authenticateToken, (req, res) => {
 app.get('/api/sites', authenticateToken, (req, res) => {
     const sites = db.prepare('SELECT id, domain, created_at FROM sites WHERE user_id = ?').all(req.user.id);
     res.json(sites);
+});
+
+// Get sync statistics for debugging
+app.get('/api/sites/sync-stats', authenticateToken, (req, res) => {
+    const domain = req.query.domain;
+    const domainFilter = domain ? ` WHERE site_domain LIKE '%${domain}%'` : '';
+    
+    const crawlerCount = db.prepare(`SELECT COUNT(*) as count FROM crawler_visits${domainFilter}`).get();
+    const referralCount = db.prepare(`SELECT COUNT(*) as count FROM referral_visits${domainFilter}`).get();
+    const oldestCrawler = db.prepare(`SELECT MIN(visited_at) as oldest FROM crawler_visits${domainFilter}`).get();
+    const newestCrawler = db.prepare(`SELECT MAX(visited_at) as newest FROM crawler_visits${domainFilter}`).get();
+    
+    // Get breakdown by domain
+    const byDomain = db.prepare(`
+        SELECT site_domain, COUNT(*) as count 
+        FROM crawler_visits 
+        GROUP BY site_domain
+    `).all();
+    
+    res.json({
+        crawlerVisits: crawlerCount.count,
+        referralVisits: referralCount.count,
+        dateRange: {
+            oldest: oldestCrawler.oldest,
+            newest: newestCrawler.newest
+        },
+        byDomain
+    });
 });
 
 // Delete a registered site
