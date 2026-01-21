@@ -26,7 +26,7 @@ const sentiment = new Sentiment();
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));  // Increased for crawler sync
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
