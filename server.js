@@ -909,6 +909,15 @@ app.delete('/api/competitors/:id', authenticateToken, requireAdmin, (req, res) =
 
 app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) => {
     const { query_text, category } = req.body;
+    
+    // Check for duplicate query
+    const existing = db.prepare('SELECT id FROM queries WHERE brand_id = ? AND query_text = ? AND is_active = 1').get(
+        req.params.id, query_text
+    );
+    if (existing) {
+        return res.status(400).json({ error: 'This query already exists for this brand' });
+    }
+    
     const result = db.prepare('INSERT INTO queries (brand_id, query_text, category) VALUES (?, ?, ?)').run(
         req.params.id, query_text, category || 'general'
     );
