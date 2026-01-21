@@ -299,7 +299,18 @@
             
             // Get data from analysis
             const brand = analysisData?.brand || currentBrand;
-            const queries = analysisData?.results || [];
+            const rawQueries = analysisData?.results || [];
+            
+            // Deduplicate queries by query_text, keeping only the latest result for each
+            const queryMap = new Map();
+            rawQueries.forEach(q => {
+                const existing = queryMap.get(q.query_text);
+                if (!existing || new Date(q.created_at || 0) > new Date(existing.created_at || 0)) {
+                    queryMap.set(q.query_text, q);
+                }
+            });
+            const queries = Array.from(queryMap.values());
+            
             const dbCompetitors = analysisData?.competitors || [];
             const dbCitations = analysisData?.citations || [];
             const competitorMentionCounts = analysisData?.competitorMentions || {};
