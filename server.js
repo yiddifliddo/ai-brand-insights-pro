@@ -2093,9 +2093,15 @@ app.post('/api/webhook/crawler', (req, res) => {
     
     console.log(`📥 Crawler sync from ${site.domain}: ${visits.length} visits received`);
     
-    // Use INSERT OR IGNORE to handle duplicates gracefully
-    const stmt = db.prepare(`
-        INSERT OR IGNORE INTO crawler_visits (site_domain, bot_name, company, bot_type, page_url, page_title, ip_address, visited_at)
+    // Check for duplicates before inserting
+    const checkStmt = db.prepare(`
+        SELECT id FROM crawler_visits 
+        WHERE site_domain = ? AND bot_name = ? AND page_url = ? AND visited_at = ?
+        LIMIT 1
+    `);
+    
+    const insertStmt = db.prepare(`
+        INSERT INTO crawler_visits (site_domain, bot_name, company, bot_type, page_url, page_title, ip_address, visited_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
@@ -2103,9 +2109,14 @@ app.post('/api/webhook/crawler', (req, res) => {
     let skipped = 0;
     for (const v of visits) {
         try {
-            const result = stmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
-            if (result.changes > 0) inserted++;
-            else skipped++;
+            // Check if this exact visit already exists
+            const existing = checkStmt.get(site.domain, v.bot_name, v.page_url, v.visited_at);
+            if (existing) {
+                skipped++;
+                continue;
+            }
+            insertStmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
+            inserted++;
         } catch (e) {
             console.error(`❌ Crawler insert error: ${e.message}`);
             skipped++;
@@ -2127,20 +2138,67 @@ app.post('/api/webhook/referral', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    const stmt = db.prepare(`
+    // Check for duplicates
+    const checkStmt = db.prepare(`
+        SELECT id FROM referral_visits 
+        WHERE site_domain = ? AND platform_name = ? AND page_url = ? AND visited_at = ?
+        LIMIT 1
+    `);
+    
+    const insertStmt = db.prepare(`
         INSERT INTO referral_visits (site_domain, platform_name, company, page_url, page_title, referrer_url, visited_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
     let inserted = 0;
+    let skipped = 0;
     for (const v of visits) {
         try {
-            stmt.run(site.domain, v.platform_name, v.company, v.page_url, v.page_title, v.referrer_url, v.visited_at);
+            const existing = checkStmt.get(site.domain, v.platform_name, v.page_url, v.visited_at);
+            if (existing) {
+                skipped++;
+                continue;
+            }
+            insertStmt.run(site.domain, v.platform_name, v.company, v.page_url, v.page_title, v.referrer_url, v.visited_at);
             inserted++;
-        } catch (e) {}
+        } catch (e) {
+            skipped++;
+        }
     }
     
-    res.json({ success: true, inserted });
+    res.json({ success: true, inserted, skipped });
+});
+
+// Admin endpoint to deduplicate crawler data
+app.post('/api/admin/dedupe-crawlers', authenticateToken, requireAdmin, (req, res) => {
+    try {
+        // Delete duplicates keeping only the first occurrence
+        const result = db.prepare(`
+            DELETE FROM crawler_visits 
+            WHERE id NOT IN (
+                SELECT MIN(id) 
+                FROM crawler_visits 
+                GROUP BY site_domain, bot_name, page_url, visited_at
+            )
+        `).run();
+        
+        const resultRef = db.prepare(`
+            DELETE FROM referral_visits 
+            WHERE id NOT IN (
+                SELECT MIN(id) 
+                FROM referral_visits 
+                GROUP BY site_domain, platform_name, page_url, visited_at
+            )
+        `).run();
+        
+        res.json({ 
+            success: true, 
+            crawlerDuplicatesRemoved: result.changes,
+            referralDuplicatesRemoved: resultRef.changes
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // Get crawler stats for dashboard
