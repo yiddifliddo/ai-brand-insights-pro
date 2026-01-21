@@ -1600,6 +1600,7 @@
             const [newApiKey, setNewApiKey] = useState(null);
             const [loading, setLoading] = useState(false);
             const [crawlerStats, setCrawlerStats] = useState(null);
+            const [deduping, setDeduping] = useState(false);
             
             useEffect(() => {
                 loadSites();
@@ -1618,6 +1619,20 @@
                     const data = await api.get('/crawler-stats?days=30');
                     setCrawlerStats(data);
                 } catch (err) {}
+            };
+            
+            const dedupeCrawlers = async () => {
+                if (!confirm('Remove duplicate crawler records? This will clean up any duplicates from multiple syncs.')) return;
+                setDeduping(true);
+                try {
+                    const result = await api.post('/admin/dedupe-crawlers');
+                    alert(`Cleanup complete!\n• ${result.crawlerDuplicatesRemoved || 0} crawler duplicates removed\n• ${result.referralDuplicatesRemoved || 0} referral duplicates removed`);
+                    await loadCrawlerStats();
+                } catch (err) {
+                    alert('Dedupe failed: ' + err.message);
+                } finally {
+                    setDeduping(false);
+                }
             };
             
             const registerSite = async () => {
@@ -1810,6 +1825,18 @@
                                         </div>
                                     </div>
                                 )}
+                                
+                                {/* Dedupe Button */}
+                                <div className="mt-6 pt-4 border-t border-slate-700">
+                                    <button
+                                        onClick={dedupeCrawlers}
+                                        disabled={deduping}
+                                        className="text-sm text-slate-400 hover:text-amber-400 transition-colors"
+                                    >
+                                        {deduping ? '🔄 Cleaning up...' : '🧹 Remove Duplicate Records'}
+                                    </button>
+                                    <p className="text-xs text-slate-500 mt-1">Clean up duplicates from multiple syncs</p>
+                                </div>
                             </div>
                         )}
                         
