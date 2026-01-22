@@ -1289,7 +1289,6 @@
             const loadSearchApiKey = async () => {
                 try {
                     const data = await api.get('/admin/api-keys');
-                    const searchapi = data.find(k => k.platform === 'searchapi');
                     // API only returns masked key, leave input empty - apiStatus shows if configured
                 } catch (err) {}
             };
