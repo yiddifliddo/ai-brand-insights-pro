@@ -209,8 +209,6 @@
             const [historyData, setHistoryData] = useState(null);
             const [expandedResponse, setExpandedResponse] = useState(null);
             const [crawlerStats, setCrawlerStats] = useState(null);
-            const [trendsData, setTrendsData] = useState({});
-            const [loadingTrends, setLoadingTrends] = useState(false);
             const [menuOpen, setMenuOpen] = useState(false);
             
             useEffect(() => {
@@ -227,18 +225,6 @@
                     // Trends loaded manually via button
                 }
             }, [selectedBrand, activePlatform, brands]);
-            
-            const loadTrends = async (brandId) => {
-                setLoadingTrends(true);
-                try {
-                    const data = await api.get(`/brands/${brandId}/trends`);
-                    setTrendsData(prev => ({ ...prev, [brandId]: data }));
-                } catch (err) {
-                    console.error('Failed to load trends:', err);
-                } finally {
-                    setLoadingTrends(false);
-                }
-            };
             
             const loadCrawlerStats = async (brandDomain) => {
                 try {
@@ -318,7 +304,6 @@
             
             // Get data from analysis
             const brand = analysisData?.brand || currentBrand;
-            const currentTrends = trendsData[selectedBrand] || null;
             const queries = analysisData?.results || [];
             const dbCompetitors = analysisData?.competitors || [];
             const dbCitations = analysisData?.citations || [];
@@ -385,10 +370,6 @@
 
             if (page === 'api-keys') {
                 return <APIKeysPage onBack={() => setPage('dashboard')} apiStatus={apiStatus} onUpdate={loadData} />;
-            }
-            
-            if (page === 'trends-settings') {
-                return <TrendsSettingsPage onBack={() => setPage('dashboard')} brands={brands} apiStatus={apiStatus} onUpdate={loadData} />;
             }
             
             if (page === 'brands') {
@@ -504,12 +485,6 @@
                                     {menuOpen && (
                                         <div className="absolute right-0 top-12 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50">
                                             <div className="py-2">
-                                                <button 
-                                                    onClick={() => { setPage('trends-settings'); setMenuOpen(false); }}
-                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
-                                                >
-                                                    <span>📈</span> Google Trends
-                                                </button>
                                                 <button 
                                                     onClick={() => { setPage('api-keys'); setMenuOpen(false); }}
                                                     className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
@@ -967,114 +942,6 @@
                             </div>
                         )}
                         
-                        {/* Google Trends Panel */}
-                        {currentTrends && currentTrends.interest_over_time && currentTrends.interest_over_time.length > 0 && (
-                            <div className="glass rounded-2xl p-6 mb-6">
-                                <div className="flex justify-between items-center mb-4">
-                                    <div>
-                                        <h3 className="text-lg font-semibold">📈 Google Trends</h3>
-                                        <p className="text-slate-400 text-sm">Search interest for {currentTrends.topicTitle || currentTrends.keywords?.[0] || 'this topic'}</p>
-                                        {currentTrends.fetched_at && (
-                                            <p className="text-slate-500 text-xs mt-1">Last Trend Query: {new Date(currentTrends.fetched_at).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}</p>
-                                        )}
-                                    </div>
-                                    <button 
-                                        onClick={() => loadTrends(selectedBrand)}
-                                        disabled={loadingTrends}
-                                        className="btn-primary px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-                                    >
-                                        {loadingTrends ? '⏳ Loading...' : '📈 Get Trends'}
-                                    </button>
-                                </div>
-                                
-                                {/* Interest Over Time Chart */}
-                                <div className="bg-slate-800/30 rounded-xl p-4 mb-4">
-                                    <h4 className="text-sm font-medium text-slate-400 mb-3">Interest Over Time</h4>
-                                    <div className="h-48 flex items-end gap-1">
-                                        {currentTrends.interest_over_time.slice(-52).map((point, i) => {
-                                            const maxValue = Math.max(...currentTrends.interest_over_time.slice(-52).map(p => 
-                                                p.values ? Math.max(...p.values.map(v => v.extracted_value || 0)) : 0
-                                            ), 1);
-                                            const value = point.values?.[0]?.extracted_value || 0;
-                                            const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                                            return (
-                                                <div key={i} className="flex-1 h-full flex flex-col justify-end group">
-                                                    <div 
-                                                        className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t transition-all hover:from-emerald-400 hover:to-emerald-300"
-                                                        style={{height: `${Math.max(height, 2)}%`}}
-                                                        title={`${point.date}: ${value}`}
-                                                    ></div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    <div className="flex justify-between text-xs text-slate-500 mt-2">
-                                        <span>{currentTrends.interest_over_time[0]?.date}</span>
-                                        <span>{currentTrends.interest_over_time[currentTrends.interest_over_time.length - 1]?.date}</span>
-                                    </div>
-                                </div>
-                                
-                                {/* Related Queries */}
-                                {currentTrends.related_queries && currentTrends.related_queries.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-slate-700">
-                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Related Queries</h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            {currentTrends.related_queries.slice(0, 10).map((q, i) => (
-                                                <span key={i} className="px-3 py-1 bg-slate-800/50 rounded-full text-sm text-slate-300">
-                                                    {q.query}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        
-                        {/* No API key - prompt to set up */}
-                        {!currentTrends && !loadingTrends && !apiStatus.searchapi && (
-                            <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
-                                <div className="text-center py-4">
-                                    <span className="text-4xl mb-4 block">📈</span>
-                                    <h3 className="text-lg font-semibold mb-2">Google Trends Data</h3>
-                                    <p className="text-slate-400 mb-4">Add a SearchAPI key to see Google Trends data for your products.</p>
-                                    <button onClick={() => setPage('api-keys')} className="btn-primary px-6 py-2 rounded-lg">
-                                        Add SearchAPI Key →
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* API key exists but no data yet (or empty data) - show Get Trends button */}
-                        {(!currentTrends || !currentTrends.interest_over_time || currentTrends.interest_over_time.length === 0) && !loadingTrends && apiStatus.searchapi && (
-                            <div className="glass rounded-2xl p-6 mb-6">
-                                <div className="text-center py-4">
-                                    <span className="text-4xl mb-4 block">📈</span>
-                                    <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
-                                    <p className="text-slate-400 mb-4">
-                                        {currentTrends && (!currentTrends.interest_over_time || currentTrends.interest_over_time.length === 0)
-                                            ? 'No data for query during the time frame of 12 months.'
-                                            : 'Click below to load Google Trends data for this brand.'}
-                                    </p>
-                                    <button 
-                                        onClick={() => loadTrends(selectedBrand)} 
-                                        disabled={loadingTrends}
-                                        className="btn-primary px-6 py-2 rounded-lg disabled:opacity-50"
-                                    >
-                                        📈 Get Trends
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {loadingTrends && (
-                            <div className="glass rounded-2xl p-6 mb-6">
-                                <div className="text-center py-8">
-                                    <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                                    <p className="text-slate-400">Loading Google Trends data...</p>
-                                </div>
-                            </div>
-                        )}
-                        
                         {/* Website Crawler Activity (from WordPress) */}
                         {crawlerStats && crawlerStats.totalCrawlerVisits > 0 && (
                             <div className="glass rounded-2xl p-6 mb-6">
@@ -1266,112 +1133,6 @@
             );
         };
 
-        // Google Trends Settings Page
-        const TrendsSettingsPage = ({ onBack, brands, apiStatus, onUpdate }) => {
-            const [brandKeywords, setBrandKeywords] = useState({});
-            const [saving, setSaving] = useState(false);
-            const [savedMessage, setSavedMessage] = useState('');
-            
-            useEffect(() => {
-                loadBrandKeywords();
-            }, [brands]);
-            
-            const loadBrandKeywords = async () => {
-                const keywords = {};
-                for (const brand of brands) {
-                    try {
-                        const data = await api.get(`/brands/${brand.id}`);
-                        keywords[brand.id] = data.keywords || '';
-                    } catch (err) {}
-                }
-                setBrandKeywords(keywords);
-            };
-            
-            const saveKeywords = async (brandId) => {
-                setSaving(true);
-                try {
-                    const brand = brands.find(b => b.id === brandId);
-                    await api.put(`/brands/${brandId}`, { 
-                        name: brand.name, 
-                        domain: brand.domain,
-                        keywords: brandKeywords[brandId] || ''
-                    });
-                    setSavedMessage(`Keywords saved for ${brand.name}!`);
-                    setTimeout(() => setSavedMessage(''), 3000);
-                } catch (err) {
-                    alert('Failed to save keywords: ' + err.message);
-                } finally {
-                    setSaving(false);
-                }
-            };
-            
-            return (
-                <div className="min-h-screen p-8">
-                    <div className="max-w-3xl mx-auto">
-                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
-                            ← Back to Dashboard
-                        </button>
-                        
-                        <h2 className="text-2xl font-bold mb-2">📈 Google Trends Settings</h2>
-                        <p className="text-slate-400 mb-6">Configure Google Trends to track search interest for your products.</p>
-                        
-                        {savedMessage && (
-                            <div className="bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-lg mb-6">
-                                ✓ {savedMessage}
-                            </div>
-                        )}
-                        
-                        {/* Brand Keywords */}
-                        <div className="glass rounded-2xl p-6">
-                            <h3 className="font-semibold mb-2">Brand Keywords</h3>
-                            <p className="text-slate-400 text-sm mb-4">
-                                Enter keywords for each brand to track on Google Trends (comma separated).
-                            </p>
-                            
-                            <div className="space-y-4">
-                                {brands.map(brand => (
-                                    <div key={brand.id} className="bg-slate-800/50 rounded-xl p-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h4 className="font-medium">{brand.name}</h4>
-                                            <span className="text-xs text-slate-500">{brand.domain}</span>
-                                        </div>
-                                        <div className="flex gap-3">
-                                            <input
-                                                type="text"
-                                                value={brandKeywords[brand.id] || ''}
-                                                onChange={(e) => setBrandKeywords({...brandKeywords, [brand.id]: e.target.value})}
-                                                placeholder="e.g. lab freezers, cryogenic storage, medical refrigerators"
-                                                className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-sky-500 focus:outline-none"
-                                            />
-                                            <button
-                                                onClick={() => saveKeywords(brand.id)}
-                                                disabled={saving}
-                                                className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-                                            >
-                                                Save
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        
-                        {/* Instructions */}
-                        <div className="glass rounded-2xl p-6 mt-6 border border-dashed border-slate-600">
-                            <h3 className="font-semibold mb-3">📋 Setup Instructions</h3>
-                            <ol className="list-decimal list-inside space-y-2 text-slate-400 text-sm">
-                                <li>Sign up at <a href="https://www.searchapi.io" target="_blank" className="text-sky-400 hover:underline">searchapi.io</a></li>
-                                <li>Copy your API key from the dashboard</li>
-                                <li>Paste it above and click Save</li>
-                                <li>Add keywords for each brand you want to track</li>
-                                <li>Go back to dashboard to see trends data</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
         // API Keys Page
         const APIKeysPage = ({ onBack, apiStatus, onUpdate }) => {
             const [keys, setKeys] = useState([]);
@@ -1410,8 +1171,7 @@
                 { id: 'google', name: 'Google (Gemini)', icon: '✨', link: 'https://aistudio.google.com/app/apikey' },
                 { id: 'anthropic', name: 'Anthropic (Claude)', icon: '🧠', link: 'https://console.anthropic.com/settings/keys' },
                 { id: 'mistral', name: 'Mistral AI', icon: '🌀', link: 'https://console.mistral.ai/api-keys' },
-                { id: 'perplexity', name: 'Perplexity', icon: '🔍', link: 'https://www.perplexity.ai/settings/api' },
-                { id: 'searchapi', name: 'SearchAPI (Google Trends)', icon: '📈', link: 'https://www.searchapi.io/dashboard' }
+                { id: 'perplexity', name: 'Perplexity', icon: '🔍', link: 'https://www.perplexity.ai/settings/api' }
             ];
             
             return (
