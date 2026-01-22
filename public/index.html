@@ -207,6 +207,7 @@
             const [crawlerStats, setCrawlerStats] = useState(null);
             const [trendsData, setTrendsData] = useState(null);
             const [loadingTrends, setLoadingTrends] = useState(false);
+            const [menuOpen, setMenuOpen] = useState(false);
             
             useEffect(() => {
                 loadData();
@@ -382,6 +383,10 @@
                 return <APIKeysPage onBack={() => setPage('dashboard')} apiStatus={apiStatus} onUpdate={loadData} />;
             }
             
+            if (page === 'trends-settings') {
+                return <TrendsSettingsPage onBack={() => setPage('dashboard')} brands={brands} apiStatus={apiStatus} onUpdate={loadData} />;
+            }
+            
             if (page === 'brands') {
                 return <BrandsPage onBack={() => setPage('dashboard')} brands={brands} onUpdate={loadData} />;
             }
@@ -477,30 +482,55 @@
                                     )}
                                 </button>
                                 
-                                {/* Settings/API Keys */}
-                                <button onClick={() => setPage('api-keys')} className="p-2 text-slate-400 hover:text-white transition-colors" title="API Keys">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                </button>
-                                
-                                {/* Brands/Competitors Management */}
-                                <button onClick={() => setPage('brands')} className="p-2 text-slate-400 hover:text-white transition-colors" title="Manage Brands & Competitors">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
-                                </button>
-                                
-                                {/* WordPress Sites */}
-                                <button onClick={() => setPage('sites')} className="p-2 text-slate-400 hover:text-white transition-colors" title="WordPress Sites">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                                    </svg>
-                                </button>
-                                
-                                {/* Logout */}
-                                <button onClick={onLogout} className="text-slate-400 hover:text-white text-sm">Sign out</button>
+                                {/* Hamburger Menu */}
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setMenuOpen(!menuOpen)}
+                                        className="p-2 text-slate-400 hover:text-white transition-colors"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                        </svg>
+                                    </button>
+                                    
+                                    {menuOpen && (
+                                        <div className="absolute right-0 top-12 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50">
+                                            <div className="py-2">
+                                                <button 
+                                                    onClick={() => { setPage('trends-settings'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>📈</span> Google Trends
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setPage('api-keys'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>🔑</span> API Keys
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setPage('brands'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>🏢</span> Brands & Competitors
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setPage('sites'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>🌐</span> WordPress Sites
+                                                </button>
+                                                <div className="border-t border-slate-700 my-2"></div>
+                                                <button 
+                                                    onClick={onLogout}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 text-red-400 flex items-center gap-3"
+                                                >
+                                                    <span>🚪</span> Sign out
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </header>
@@ -1209,6 +1239,166 @@
                             AI Brand Insights for Standex Scientific • Last analysis: {new Date().toLocaleDateString()}
                         </footer>
                     </main>
+                </div>
+            );
+        };
+
+        // Google Trends Settings Page
+        const TrendsSettingsPage = ({ onBack, brands, apiStatus, onUpdate }) => {
+            const [searchApiKey, setSearchApiKey] = useState('');
+            const [brandKeywords, setBrandKeywords] = useState({});
+            const [saving, setSaving] = useState(false);
+            const [savedMessage, setSavedMessage] = useState('');
+            
+            useEffect(() => {
+                loadSearchApiKey();
+                loadBrandKeywords();
+            }, [brands]);
+            
+            const loadSearchApiKey = async () => {
+                try {
+                    const data = await api.get('/admin/api-keys');
+                    const searchapi = data.find(k => k.platform === 'searchapi');
+                    if (searchapi) {
+                        setSearchApiKey(searchapi.api_key);
+                    }
+                } catch (err) {}
+            };
+            
+            const loadBrandKeywords = async () => {
+                const keywords = {};
+                for (const brand of brands) {
+                    try {
+                        const data = await api.get(`/brands/${brand.id}`);
+                        keywords[brand.id] = data.keywords || '';
+                    } catch (err) {}
+                }
+                setBrandKeywords(keywords);
+            };
+            
+            const saveApiKey = async () => {
+                if (!searchApiKey.trim()) return;
+                setSaving(true);
+                try {
+                    await api.post('/admin/api-keys', { platform: 'searchapi', api_key: searchApiKey.trim() });
+                    setSavedMessage('API key saved!');
+                    setTimeout(() => setSavedMessage(''), 3000);
+                    onUpdate();
+                } catch (err) {
+                    alert('Failed to save API key: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const saveKeywords = async (brandId) => {
+                setSaving(true);
+                try {
+                    const brand = brands.find(b => b.id === brandId);
+                    await api.put(`/brands/${brandId}`, { 
+                        name: brand.name, 
+                        domain: brand.domain,
+                        keywords: brandKeywords[brandId] || ''
+                    });
+                    setSavedMessage(`Keywords saved for ${brand.name}!`);
+                    setTimeout(() => setSavedMessage(''), 3000);
+                } catch (err) {
+                    alert('Failed to save keywords: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen p-8">
+                    <div className="max-w-3xl mx-auto">
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
+                            ← Back to Dashboard
+                        </button>
+                        
+                        <h2 className="text-2xl font-bold mb-2">📈 Google Trends Settings</h2>
+                        <p className="text-slate-400 mb-6">Configure Google Trends to track search interest for your products.</p>
+                        
+                        {savedMessage && (
+                            <div className="bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-lg mb-6">
+                                ✓ {savedMessage}
+                            </div>
+                        )}
+                        
+                        {/* SearchAPI Key */}
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-2">SearchAPI Key</h3>
+                            <p className="text-slate-400 text-sm mb-4">
+                                Get your API key from <a href="https://www.searchapi.io/dashboard" target="_blank" className="text-sky-400 hover:underline">searchapi.io/dashboard</a>
+                            </p>
+                            <div className="flex gap-3">
+                                <input
+                                    type="password"
+                                    value={searchApiKey}
+                                    onChange={(e) => setSearchApiKey(e.target.value)}
+                                    placeholder="Enter your SearchAPI key"
+                                    className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 focus:border-sky-500 focus:outline-none"
+                                />
+                                <button
+                                    onClick={saveApiKey}
+                                    disabled={saving || !searchApiKey.trim()}
+                                    className="btn-primary px-6 py-3 rounded-lg disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                            {apiStatus.searchapi && (
+                                <p className="text-emerald-400 text-sm mt-2">✓ API key configured</p>
+                            )}
+                        </div>
+                        
+                        {/* Brand Keywords */}
+                        <div className="glass rounded-2xl p-6">
+                            <h3 className="font-semibold mb-2">Brand Keywords</h3>
+                            <p className="text-slate-400 text-sm mb-4">
+                                Enter keywords for each brand to track on Google Trends (comma separated).
+                            </p>
+                            
+                            <div className="space-y-4">
+                                {brands.map(brand => (
+                                    <div key={brand.id} className="bg-slate-800/50 rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="font-medium">{brand.name}</h4>
+                                            <span className="text-xs text-slate-500">{brand.domain}</span>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <input
+                                                type="text"
+                                                value={brandKeywords[brand.id] || ''}
+                                                onChange={(e) => setBrandKeywords({...brandKeywords, [brand.id]: e.target.value})}
+                                                placeholder="e.g. lab freezers, cryogenic storage, medical refrigerators"
+                                                className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                                            />
+                                            <button
+                                                onClick={() => saveKeywords(brand.id)}
+                                                disabled={saving}
+                                                className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {/* Instructions */}
+                        <div className="glass rounded-2xl p-6 mt-6 border border-dashed border-slate-600">
+                            <h3 className="font-semibold mb-3">📋 Setup Instructions</h3>
+                            <ol className="list-decimal list-inside space-y-2 text-slate-400 text-sm">
+                                <li>Sign up at <a href="https://www.searchapi.io" target="_blank" className="text-sky-400 hover:underline">searchapi.io</a></li>
+                                <li>Copy your API key from the dashboard</li>
+                                <li>Paste it above and click Save</li>
+                                <li>Add keywords for each brand you want to track</li>
+                                <li>Go back to dashboard to see trends data</li>
+                            </ol>
+                        </div>
+                    </div>
                 </div>
             );
         };
