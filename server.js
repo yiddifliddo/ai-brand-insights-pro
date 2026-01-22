@@ -2228,14 +2228,44 @@ app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
         }
         
         const data = await response.json();
+        console.log('SearchAPI response for', brand.name, ':', JSON.stringify(data).substring(0, 1000));
         
-        // Process the data for our dashboard
+        // Process the data for our dashboard - handle various response formats
+        // SearchAPI may return data in different structures
+        let interestOverTime = [];
+        let relatedQueries = [];
+        let comparedBreakdown = [];
+        
+        // Try different possible locations for interest_over_time data
+        if (data.interest_over_time && Array.isArray(data.interest_over_time)) {
+            interestOverTime = data.interest_over_time;
+        } else if (data.interest_over_time?.timeline_data) {
+            interestOverTime = data.interest_over_time.timeline_data;
+        } else if (data.timeline_data) {
+            interestOverTime = data.timeline_data;
+        }
+        
+        // Try different locations for related queries
+        if (data.related_queries && Array.isArray(data.related_queries)) {
+            relatedQueries = data.related_queries;
+        } else if (data.related_queries?.rising) {
+            relatedQueries = data.related_queries.rising;
+        }
+        
+        // Regional data
+        if (data.compared_breakdown_by_region && Array.isArray(data.compared_breakdown_by_region)) {
+            comparedBreakdown = data.compared_breakdown_by_region;
+        } else if (data.interest_by_region) {
+            comparedBreakdown = data.interest_by_region;
+        }
+        
         const trendsData = {
             brand: brand.name,
             keywords: keywords,
-            interest_over_time: data.interest_over_time || [],
-            compared_breakdown_by_region: data.compared_breakdown_by_region || [],
-            related_queries: data.related_queries || [],
+            interest_over_time: interestOverTime,
+            compared_breakdown_by_region: comparedBreakdown,
+            related_queries: relatedQueries,
+            raw_response_keys: Object.keys(data), // For debugging
             fetched_at: new Date().toISOString()
         };
         
