@@ -1336,6 +1336,7 @@
             const [editingBrand, setEditingBrand] = useState(null);
             const [editName, setEditName] = useState('');
             const [editDomain, setEditDomain] = useState('');
+            const [editKeywords, setEditKeywords] = useState('');
             
             useEffect(() => {
                 if (brands.length > 0 && !selectedBrand) {
@@ -1362,13 +1363,18 @@
                 setEditingBrand(brand.id);
                 setEditName(brand.name);
                 setEditDomain(brand.domain || '');
+                setEditKeywords(brand.keywords || '');
             };
             
             const saveBrandEdit = async () => {
                 if (!editName.trim()) return;
                 setSaving(true);
                 try {
-                    await api.put(`/brands/${editingBrand}`, { name: editName.trim(), domain: editDomain.trim() });
+                    await api.put(`/brands/${editingBrand}`, { 
+                        name: editName.trim(), 
+                        domain: editDomain.trim(),
+                        keywords: editKeywords.trim()
+                    });
                     setEditingBrand(null);
                     await loadBrandDetails(selectedBrand);
                     onUpdate();
@@ -1438,6 +1444,13 @@
                                                         onChange={(e) => setEditDomain(e.target.value)}
                                                         className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm"
                                                         placeholder="Domain (e.g. example.com)"
+                                                    />
+                                                    <textarea
+                                                        value={editKeywords}
+                                                        onChange={(e) => setEditKeywords(e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm"
+                                                        placeholder="Keywords (comma separated, e.g. lab freezers, cryogenic storage)"
+                                                        rows={2}
                                                     />
                                                     <div className="flex gap-2">
                                                         <button onClick={saveBrandEdit} disabled={saving} className="flex-1 bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-sm">
