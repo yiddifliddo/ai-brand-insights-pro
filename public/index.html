@@ -1056,13 +1056,17 @@
                             </div>
                         )}
                         
-                        {/* API key exists but no data yet - show Get Trends button */}
-                        {!currentTrends && !loadingTrends && apiStatus.searchapi && (
+                        {/* API key exists but no data yet (or empty data) - show Get Trends button */}
+                        {(!currentTrends || !currentTrends.interest_over_time || currentTrends.interest_over_time.length === 0) && !loadingTrends && apiStatus.searchapi && (
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="text-center py-4">
                                     <span className="text-4xl mb-4 block">📈</span>
                                     <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
-                                    <p className="text-slate-400 mb-4">Click below to load Google Trends data for this brand.</p>
+                                    <p className="text-slate-400 mb-4">
+                                        {currentTrends && (!currentTrends.interest_over_time || currentTrends.interest_over_time.length === 0)
+                                            ? 'No data for query during the time frame of 12 months.'
+                                            : 'Click below to load Google Trends data for this brand.'}
+                                    </p>
                                     <button 
                                         onClick={() => loadTrends(selectedBrand)} 
                                         disabled={loadingTrends}
@@ -1276,22 +1280,13 @@
 
         // Google Trends Settings Page
         const TrendsSettingsPage = ({ onBack, brands, apiStatus, onUpdate }) => {
-            const [searchApiKey, setSearchApiKey] = useState('');
             const [brandKeywords, setBrandKeywords] = useState({});
             const [saving, setSaving] = useState(false);
             const [savedMessage, setSavedMessage] = useState('');
             
             useEffect(() => {
-                loadSearchApiKey();
                 loadBrandKeywords();
             }, [brands]);
-            
-            const loadSearchApiKey = async () => {
-                try {
-                    const data = await api.get('/admin/api-keys');
-                    // API only returns masked key, leave input empty - apiStatus shows if configured
-                } catch (err) {}
-            };
             
             const loadBrandKeywords = async () => {
                 const keywords = {};
@@ -1302,21 +1297,6 @@
                     } catch (err) {}
                 }
                 setBrandKeywords(keywords);
-            };
-            
-            const saveApiKey = async () => {
-                if (!searchApiKey || !searchApiKey.trim()) return;
-                setSaving(true);
-                try {
-                    await api.post('/admin/api-keys', { platform: 'searchapi', api_key: searchApiKey.trim() });
-                    setSavedMessage('API key saved!');
-                    setTimeout(() => setSavedMessage(''), 3000);
-                    onUpdate();
-                } catch (err) {
-                    alert('Failed to save API key: ' + err.message);
-                } finally {
-                    setSaving(false);
-                }
             };
             
             const saveKeywords = async (brandId) => {
@@ -1352,33 +1332,6 @@
                                 ✓ {savedMessage}
                             </div>
                         )}
-                        
-                        {/* SearchAPI Key */}
-                        <div className="glass rounded-2xl p-6 mb-6">
-                            <h3 className="font-semibold mb-2">SearchAPI Key</h3>
-                            <p className="text-slate-400 text-sm mb-4">
-                                Get your API key from <a href="https://www.searchapi.io/dashboard" target="_blank" className="text-sky-400 hover:underline">searchapi.io/dashboard</a>
-                            </p>
-                            <div className="flex gap-3">
-                                <input
-                                    type="password"
-                                    value={searchApiKey}
-                                    onChange={(e) => setSearchApiKey(e.target.value)}
-                                    placeholder="Enter your SearchAPI key"
-                                    className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 focus:border-sky-500 focus:outline-none"
-                                />
-                                <button
-                                    onClick={saveApiKey}
-                                    disabled={saving || !searchApiKey || !searchApiKey.trim()}
-                                    className="btn-primary px-6 py-3 rounded-lg disabled:opacity-50"
-                                >
-                                    {saving ? 'Saving...' : 'Save'}
-                                </button>
-                            </div>
-                            {apiStatus.searchapi && (
-                                <p className="text-emerald-400 text-sm mt-2">✓ API key configured</p>
-                            )}
-                        </div>
                         
                         {/* Brand Keywords */}
                         <div className="glass rounded-2xl p-6">
