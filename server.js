@@ -839,7 +839,10 @@ app.get('/api/admin/api-keys/status', authenticateToken, (req, res) => {
     const status = {
         openai: false,
         google: false,
-        perplexity: false
+        anthropic: false,
+        mistral: false,
+        perplexity: false,
+        searchapi: false
     };
     keys.forEach(k => {
         status[k.platform] = k.is_active === 1;
