@@ -226,7 +226,7 @@
                     loadCrawlerStats(brand?.domain);
                     loadTrends(selectedBrand);
                 }
-            }, [selectedBrand, activePlatform, brands]);
+            }, [selectedBrand, activePlatform, brands, apiStatus.searchapi]);
             
             const loadTrends = async (brandId) => {
                 setLoadingTrends(true);
@@ -1038,7 +1038,7 @@
                         )}
                         
                         {/* No trends data - prompt to set up */}
-                        {!trendsData && !loadingTrends && apiStatus.searchapi !== false && (
+                        {!trendsData && !loadingTrends && !apiStatus.searchapi && (
                             <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
                                 <div className="text-center py-4">
                                     <span className="text-4xl mb-4 block">📈</span>
@@ -1056,6 +1056,20 @@
                                 <div className="text-center py-8">
                                     <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                                     <p className="text-slate-400">Loading Google Trends data...</p>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Key configured but no trends data - offer refresh */}
+                        {!trendsData && !loadingTrends && apiStatus.searchapi && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="text-center py-4">
+                                    <span className="text-4xl mb-4 block">📈</span>
+                                    <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
+                                    <p className="text-slate-400 mb-4">No trends data available. Make sure the brand has keywords set.</p>
+                                    <button onClick={() => loadTrends(selectedBrand)} className="btn-primary px-6 py-2 rounded-lg">
+                                        🔄 Load Trends Data
+                                    </button>
                                 </div>
                             </div>
                         )}
