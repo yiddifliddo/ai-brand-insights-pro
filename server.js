@@ -2201,8 +2201,22 @@ app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
     }
     
     try {
-        // Get keywords from brand - use brand name and keywords
-        const keywords = brand.keywords ? brand.keywords.split(',').slice(0, 5).map(k => k.trim()) : [brand.name];
+        // Get keywords from brand - handle both JSON array and comma-separated string
+        let keywords = [brand.name]; // default to brand name
+        if (brand.keywords) {
+            try {
+                // Try parsing as JSON first
+                const parsed = JSON.parse(brand.keywords);
+                if (Array.isArray(parsed)) {
+                    keywords = parsed.slice(0, 5).map(k => String(k).trim()).filter(k => k);
+                }
+            } catch {
+                // Not JSON, treat as comma-separated string
+                keywords = brand.keywords.split(',').slice(0, 5).map(k => k.trim()).filter(k => k);
+            }
+        }
+        if (keywords.length === 0) keywords = [brand.name];
+        
         const searchTerms = keywords.join(',');
         
         const response = await fetch(
