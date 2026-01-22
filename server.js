@@ -2216,12 +2216,13 @@ app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
         const data = await response.json();
         
         // Process the data for our dashboard
+        // SearchAPI returns interest_over_time.timeline_data, not interest_over_time directly
         const trendsData = {
             brand: brand.name,
             keywords: keywords,
-            interest_over_time: data.interest_over_time || [],
+            interest_over_time: data.interest_over_time?.timeline_data || data.interest_over_time || [],
             compared_breakdown_by_region: data.compared_breakdown_by_region || [],
-            related_queries: data.related_queries || [],
+            related_queries: data.related_queries?.rising || data.related_queries || [],
             fetched_at: new Date().toISOString()
         };
         
