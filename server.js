@@ -2206,7 +2206,7 @@ app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
         const searchTerms = keywords.join(',');
         
         const response = await fetch(
-            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(searchTerms)}&data_type=TIMESERIES&api_key=${apiKey}`
+            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(searchTerms)}&data_type=TIMESERIES&geo=US&date=today%2012-m&api_key=${apiKey}`
         );
         
         if (!response.ok) {
