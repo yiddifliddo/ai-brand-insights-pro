@@ -402,25 +402,23 @@
             return (
                 <div className="min-h-screen">
                     {/* Header */}
-                    <header className="glass-dark sticky top-0 z-50 px-4 py-3">
-                        <div className="flex items-center gap-4">
-                            {/* Logo and Title - fixed width, won't shrink */}
-                            <div className="flex items-center gap-3 flex-shrink-0">
+                    <header className="glass-dark sticky top-0 z-50 px-6 py-4">
+                        <div className="max-w-7xl mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-3">
                                 <img 
                                     src="https://americanbiotechsupply.com/wp-content/uploads/2026/01/SXI_BIG-416c9b33.png" 
                                     alt="Standex" 
-                                    className="h-6 w-auto object-contain brightness-0 invert"
+                                    className="h-8 w-auto brightness-0 invert"
                                 />
-                                <div className="border-l border-slate-600 pl-3">
-                                    <h1 className="text-base font-bold leading-tight whitespace-nowrap">AI Brand Insights</h1>
-                                    <p className="text-slate-400 text-xs whitespace-nowrap">Standex Scientific</p>
+                                <div>
+                                    <h1 className="text-lg font-bold">AI Brand Insights</h1>
+                                    <p className="text-slate-400 text-xs">Standex Scientific</p>
                                 </div>
                             </div>
                             
-                            {/* Right side controls */}
-                            <div className="flex items-center gap-3 flex-1 justify-end">
+                            <div className="flex items-center gap-4">
                                 {/* Platform filters */}
-                                <div className="flex gap-2 flex-shrink-0">
+                                <div className="flex gap-2">
                                     {[
                                         { id: 'all', label: 'All Platforms', icon: '🌐' },
                                         { id: 'chatgpt', label: 'ChatGPT', icon: '🤖' },
@@ -448,7 +446,7 @@
                                 <select
                                     value={selectedBrand || ''}
                                     onChange={e => setSelectedBrand(e.target.value)}
-                                    className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-sky-500 flex-shrink-0"
+                                    className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-sky-500"
                                 >
                                     {brands.map(b => (
                                         <option key={b.id} value={b.id}>{b.name}</option>
@@ -464,7 +462,7 @@
                                         loadCrawlerStats(brand?.domain);
                                         loadTrends(selectedBrand);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 hover:bg-slate-600 transition-colors flex-shrink-0"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 hover:bg-slate-600 transition-colors"
                                     title="Refresh Data"
                                 >
                                     🔄 Refresh
@@ -474,7 +472,7 @@
                                 <button
                                     onClick={runAnalysis}
                                     disabled={analyzing}
-                                    className="btn-primary flex items-center gap-2 px-5 py-2 rounded-lg font-medium text-sm disabled:opacity-50 flex-shrink-0"
+                                    className="btn-primary flex items-center gap-2 px-5 py-2 rounded-lg font-medium text-sm disabled:opacity-50"
                                 >
                                     {analyzing ? (
                                         <>
@@ -1269,9 +1267,8 @@
                 try {
                     const data = await api.get('/admin/api-keys');
                     const searchapi = data.find(k => k.platform === 'searchapi');
-                    if (searchapi) {
-                        setSearchApiKey(searchapi.api_key);
-                    }
+                    // Don't load the masked key into the input - leave empty for new key entry
+                    // The apiStatus.searchapi will show if it's configured
                 } catch (err) {}
             };
             
@@ -1287,7 +1284,7 @@
             };
             
             const saveApiKey = async () => {
-                if (!searchApiKey.trim()) return;
+                if (!searchApiKey || !searchApiKey.trim()) return;
                 setSaving(true);
                 try {
                     await api.post('/admin/api-keys', { platform: 'searchapi', api_key: searchApiKey.trim() });
@@ -1351,7 +1348,7 @@
                                 />
                                 <button
                                     onClick={saveApiKey}
-                                    disabled={saving || !searchApiKey.trim()}
+                                    disabled={saving || !searchApiKey || !searchApiKey.trim()}
                                     className="btn-primary px-6 py-3 rounded-lg disabled:opacity-50"
                                 >
                                     {saving ? 'Saving...' : 'Save'}
@@ -1520,7 +1517,6 @@
                                 <p><span className="text-slate-400">Anthropic:</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-sky-400 hover:underline">console.anthropic.com/settings/keys</a></p>
                                 <p><span className="text-slate-400">Mistral:</span> <a href="https://console.mistral.ai/api-keys" target="_blank" className="text-sky-400 hover:underline">console.mistral.ai/api-keys</a></p>
                                 <p><span className="text-slate-400">Perplexity:</span> <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-sky-400 hover:underline">perplexity.ai/settings/api</a></p>
-                                <p><span className="text-slate-400">Google Trends:</span> <a href="https://www.searchapi.io/dashboard" target="_blank" className="text-sky-400 hover:underline">searchapi.io/dashboard</a> <span className="text-slate-500">(uses SearchAPI.io)</span></p>
                             </div>
                         </div>
                     </div>
