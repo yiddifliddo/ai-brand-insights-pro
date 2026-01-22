@@ -2058,10 +2058,10 @@ app.post('/api/webhook/crawler', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    // Check for existing visits to prevent duplicates
+    // Check for existing visits to prevent duplicates - match on same day, not exact timestamp
     const checkStmt = db.prepare(`
         SELECT id FROM crawler_visits 
-        WHERE site_domain = ? AND bot_name = ? AND page_url = ? AND visited_at = ?
+        WHERE site_domain = ? AND bot_name = ? AND page_url = ? AND DATE(visited_at) = DATE(?)
         LIMIT 1
     `);
     
@@ -2074,7 +2074,7 @@ app.post('/api/webhook/crawler', (req, res) => {
     let skipped = 0;
     for (const v of visits) {
         try {
-            // Check if this exact visit already exists
+            // Check if this visit already exists for same bot/page on same day
             const existing = checkStmt.get(site.domain, v.bot_name, v.page_url, v.visited_at);
             if (existing) {
                 skipped++;
@@ -2100,10 +2100,10 @@ app.post('/api/webhook/referral', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    // Check for existing visits to prevent duplicates
+    // Check for existing visits to prevent duplicates - match on same day
     const checkStmt = db.prepare(`
         SELECT id FROM referral_visits 
-        WHERE site_domain = ? AND platform_name = ? AND page_url = ? AND visited_at = ?
+        WHERE site_domain = ? AND platform_name = ? AND page_url = ? AND DATE(visited_at) = DATE(?)
         LIMIT 1
     `);
     
@@ -2116,7 +2116,7 @@ app.post('/api/webhook/referral', (req, res) => {
     let skipped = 0;
     for (const v of visits) {
         try {
-            // Check if this exact visit already exists
+            // Check if this visit already exists for same platform/page on same day
             const existing = checkStmt.get(site.domain, v.platform_name, v.page_url, v.visited_at);
             if (existing) {
                 skipped++;
@@ -2230,23 +2230,24 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
         const beforeCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
         const beforeReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
         
-        // Delete duplicate crawler visits, keeping the first occurrence (lowest id)
+        // Delete duplicate crawler visits - match on same site, bot, page, and same DAY (not exact timestamp)
+        // Keep the first occurrence (lowest id)
         db.exec(`
             DELETE FROM crawler_visits 
             WHERE id NOT IN (
                 SELECT MIN(id) 
                 FROM crawler_visits 
-                GROUP BY site_domain, bot_name, page_url, visited_at
+                GROUP BY site_domain, bot_name, page_url, DATE(visited_at)
             )
         `);
         
-        // Delete duplicate referral visits, keeping the first occurrence (lowest id)
+        // Delete duplicate referral visits - same logic
         db.exec(`
             DELETE FROM referral_visits 
             WHERE id NOT IN (
                 SELECT MIN(id) 
                 FROM referral_visits 
-                GROUP BY site_domain, platform_name, page_url, visited_at
+                GROUP BY site_domain, platform_name, page_url, DATE(visited_at)
             )
         `);
         
