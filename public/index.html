@@ -234,6 +234,7 @@
                 setTrendsError(null);
                 try {
                     const data = await api.get(`/brands/${brandId}/trends`);
+                    console.log('Trends data received:', data);
                     setTrendsData(data);
                 } catch (err) {
                     console.error('Failed to load trends:', err);
@@ -1063,14 +1064,22 @@
                             </div>
                         )}
                         
-                        {/* Key configured but no trends data - show error or offer refresh */}
-                        {!trendsData && !loadingTrends && apiStatus.searchapi && (
+                        {/* Key configured but no trends data or error - show error or offer refresh */}
+                        {!loadingTrends && apiStatus.searchapi && (!trendsData || !trendsData.interest_over_time || trendsData.interest_over_time.length === 0) && (
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="text-center py-4">
                                     <span className="text-4xl mb-4 block">📈</span>
                                     <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
                                     {trendsError ? (
                                         <p className="text-red-400 mb-4">Error: {trendsError}</p>
+                                    ) : trendsData ? (
+                                        <div className="mb-4">
+                                            <p className="text-amber-400 mb-2">No timeline data returned.</p>
+                                            <p className="text-slate-500 text-sm">Keywords: {trendsData.keywords?.join(', ')}</p>
+                                            {trendsData.raw_response_keys && (
+                                                <p className="text-slate-500 text-xs mt-1">API returned: {trendsData.raw_response_keys.join(', ')}</p>
+                                            )}
+                                        </div>
                                     ) : (
                                         <p className="text-slate-400 mb-4">Click below to load Google Trends data.</p>
                                     )}
