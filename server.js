@@ -817,7 +817,7 @@ app.get('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
 app.post('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
     const { platform, api_key } = req.body;
     
-    if (!['openai', 'google', 'perplexity', 'anthropic', 'mistral'].includes(platform)) {
+    if (!['openai', 'google', 'perplexity', 'anthropic', 'mistral', 'searchapi'].includes(platform)) {
         return res.status(400).json({ error: 'Invalid platform' });
     }
     
@@ -839,9 +839,9 @@ app.get('/api/admin/api-keys/status', authenticateToken, (req, res) => {
     const status = {
         openai: false,
         google: false,
+        perplexity: false,
         anthropic: false,
         mistral: false,
-        perplexity: false,
         searchapi: false
     };
     keys.forEach(k => {
