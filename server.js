@@ -817,7 +817,7 @@ app.get('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
 app.post('/api/admin/api-keys', authenticateToken, requireAdmin, (req, res) => {
     const { platform, api_key } = req.body;
     
-    if (!['openai', 'google', 'perplexity', 'anthropic', 'mistral', 'searchapi'].includes(platform)) {
+    if (!['openai', 'google', 'perplexity', 'anthropic', 'mistral'].includes(platform)) {
         return res.status(400).json({ error: 'Invalid platform' });
     }
     
@@ -841,8 +841,7 @@ app.get('/api/admin/api-keys/status', authenticateToken, (req, res) => {
         google: false,
         perplexity: false,
         anthropic: false,
-        mistral: false,
-        searchapi: false
+        mistral: false
     };
     keys.forEach(k => {
         status[k.platform] = k.is_active === 1;
@@ -2184,111 +2183,6 @@ app.delete('/api/sites/:id', authenticateToken, (req, res) => {
     db.prepare('DELETE FROM sites WHERE id = ?').run(req.params.id);
     
     res.json({ success: true });
-});
-
-// Google Trends data via SearchAPI
-app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
-    const brandId = req.params.id;
-    const brand = db.prepare('SELECT * FROM brands WHERE id = ?').get(brandId);
-    
-    if (!brand) {
-        return res.status(404).json({ error: 'Brand not found' });
-    }
-    
-    const apiKey = getApiKey('searchapi');
-    if (!apiKey) {
-        return res.status(400).json({ error: 'SearchAPI key not configured' });
-    }
-    
-    try {
-        // Get keywords from brand - use brand name and keywords
-        const keywords = brand.keywords ? brand.keywords.split(',').slice(0, 5).map(k => k.trim()) : [brand.name];
-        const firstKeyword = keywords[0];
-        
-        // Step 1: Get topic ID from Google Trends Autocomplete
-        console.log(`🔍 Trends: Fetching topic ID for "${firstKeyword}" via autocomplete...`);
-        let topicId = null;
-        let topicTitle = firstKeyword;
-        
-        try {
-            const autocompleteResponse = await fetch(
-                `https://www.searchapi.io/api/v1/search?engine=google_trends_autocomplete&q=${encodeURIComponent(firstKeyword)}&api_key=${apiKey}`
-            );
-            
-            if (autocompleteResponse.ok) {
-                const autocompleteData = await autocompleteResponse.json();
-                
-                // Look for a topic match in suggestions
-                if (autocompleteData.suggestions && autocompleteData.suggestions.length > 0) {
-                    // Find the first topic (has mid field) that matches our search
-                    const topicMatch = autocompleteData.suggestions.find(s => s.mid && s.type === 'Topic');
-                    if (topicMatch) {
-                        topicId = topicMatch.mid; // e.g., "/g/11cjnkl9pk"
-                        topicTitle = topicMatch.title || firstKeyword;
-                        console.log(`✅ Trends: Found topic ID "${topicId}" for "${topicTitle}"`);
-                    } else {
-                        // Fallback to first suggestion with mid
-                        const anyMatch = autocompleteData.suggestions.find(s => s.mid);
-                        if (anyMatch) {
-                            topicId = anyMatch.mid;
-                            topicTitle = anyMatch.title || firstKeyword;
-                            console.log(`✅ Trends: Found fallback topic ID "${topicId}" for "${topicTitle}"`);
-                        }
-                    }
-                }
-            }
-        } catch (autoErr) {
-            console.log(`⚠️ Trends: Autocomplete failed, using text search: ${autoErr.message}`);
-        }
-        
-        // Step 2: Fetch TIMESERIES using topic ID (or fall back to text query)
-        const searchQuery = topicId || firstKeyword;
-        console.log(`📈 Trends: Fetching timeseries for "${searchQuery}"...`);
-        
-        const timeseriesResponse = await fetch(
-            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(searchQuery)}&data_type=TIMESERIES&geo=US&date=today%2012-m&api_key=${apiKey}`
-        );
-        
-        if (!timeseriesResponse.ok) {
-            throw new Error(`SearchAPI timeseries error: ${timeseriesResponse.status}`);
-        }
-        
-        const data = await timeseriesResponse.json();
-        
-        // Check for error in response (e.g., "not enough data")
-        if (data.error) {
-            console.log('SearchAPI returned error:', data.error);
-            return res.json({
-                brand: brand.name,
-                keywords: keywords,
-                topicId: topicId,
-                topicTitle: topicTitle,
-                interest_over_time: [],
-                compared_breakdown_by_region: [],
-                related_queries: [],
-                fetched_at: new Date().toISOString(),
-                error: data.error
-            });
-        }
-        
-        // Process the data for our dashboard
-        const trendsData = {
-            brand: brand.name,
-            keywords: keywords,
-            topicId: topicId,
-            topicTitle: topicTitle,
-            interest_over_time: data.interest_over_time?.timeline_data || data.interest_over_time || [],
-            compared_breakdown_by_region: data.compared_breakdown_by_region || [],
-            related_queries: data.related_queries?.rising || data.related_queries || [],
-            fetched_at: new Date().toISOString()
-        };
-        
-        console.log(`✅ Trends: Got ${trendsData.interest_over_time.length} data points`);
-        res.json(trendsData);
-    } catch (err) {
-        console.error('Google Trends error:', err);
-        res.status(500).json({ error: 'Failed to fetch trends data: ' + err.message });
-    }
 });
 
 // Health check
