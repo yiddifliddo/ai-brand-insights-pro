@@ -867,22 +867,23 @@ app.get('/api/brands/:id', authenticateToken, (req, res) => {
     res.json({ ...brand, competitors, queries });
 });
 
-// Update brand name/domain
+// Update brand name/domain/keywords
 app.put('/api/brands/:id', authenticateToken, requireAdmin, (req, res) => {
-    const { name, domain } = req.body;
+    const { name, domain, keywords } = req.body;
     const brand = db.prepare('SELECT * FROM brands WHERE id = ?').get(req.params.id);
     if (!brand) {
         return res.status(404).json({ error: 'Brand not found' });
     }
     
-    db.prepare('UPDATE brands SET name = ?, domain = ? WHERE id = ?').run(
+    db.prepare('UPDATE brands SET name = ?, domain = ?, keywords = ? WHERE id = ?').run(
         name || brand.name,
         domain || brand.domain,
+        keywords !== undefined ? keywords : brand.keywords,
         req.params.id
     );
     
     logActivity(req.user.id, 'brand_updated', { brandId: req.params.id, name });
-    res.json({ success: true, name, domain });
+    res.json({ success: true, name, domain, keywords });
 });
 
 app.post('/api/brands', authenticateToken, requireAdmin, (req, res) => {
