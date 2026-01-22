@@ -1474,6 +1474,8 @@
             const [newApiKey, setNewApiKey] = useState(null);
             const [loading, setLoading] = useState(false);
             const [crawlerStats, setCrawlerStats] = useState(null);
+            const [cleanupResult, setCleanupResult] = useState(null);
+            const [cleaningUp, setCleaningUp] = useState(false);
             
             useEffect(() => {
                 loadSites();
@@ -1492,6 +1494,21 @@
                     const data = await api.get('/crawler-stats?days=30');
                     setCrawlerStats(data);
                 } catch (err) {}
+            };
+            
+            const cleanupDuplicates = async () => {
+                if (!confirm('This will remove duplicate crawler entries. Continue?')) return;
+                setCleaningUp(true);
+                setCleanupResult(null);
+                try {
+                    const result = await api.post('/admin/cleanup-duplicates');
+                    setCleanupResult(result);
+                    await loadCrawlerStats(); // Refresh stats
+                } catch (err) {
+                    alert('Cleanup failed: ' + err.message);
+                } finally {
+                    setCleaningUp(false);
+                }
             };
             
             const registerSite = async () => {
@@ -1687,6 +1704,31 @@
                             </div>
                         )}
                         
+                        {/* Data Maintenance */}
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-4">🧹 Data Maintenance</h3>
+                            <p className="text-slate-400 text-sm mb-4">
+                                Remove duplicate crawler entries that may have been synced multiple times.
+                            </p>
+                            <button
+                                onClick={cleanupDuplicates}
+                                disabled={cleaningUp}
+                                className="bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                            >
+                                {cleaningUp ? '🔄 Cleaning...' : '🧹 Remove Duplicates'}
+                            </button>
+                            
+                            {cleanupResult && (
+                                <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
+                                    <p className="text-emerald-400 font-medium">✅ Cleanup Complete</p>
+                                    <p className="text-slate-300 text-sm mt-1">
+                                        Removed {cleanupResult.crawler?.removed || 0} duplicate crawler visits 
+                                        and {cleanupResult.referral?.removed || 0} duplicate referral visits.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        
                         {/* Setup Instructions */}
                         <div className="glass rounded-2xl p-6 mt-6">
                             <h3 className="font-semibold mb-4">📖 Setup Instructions</h3>
@@ -1696,7 +1738,7 @@
                                 <li>In WordPress, go to <strong>AI Crawlers → Settings</strong></li>
                                 <li>Enable "Sync to AI Brand Insights Pro"</li>
                                 <li>Paste the Railway URL and API Key</li>
-                                <li>Click Save - data will sync daily (use Sync Now for immediate)</li>
+                                <li>Click Save - data will sync every 12 hours (use Sync Now for immediate)</li>
                             </ol>
                         </div>
                     </div>
