@@ -2205,28 +2205,40 @@ app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
         const keywords = brand.keywords ? brand.keywords.split(',').slice(0, 5).map(k => k.trim()) : [brand.name];
         const firstKeyword = keywords[0];
         
-        // Step 1: Get topic ID from RELATED_TOPICS
-        console.log(`🔍 Trends: Fetching topic ID for "${firstKeyword}"...`);
-        const topicsResponse = await fetch(
-            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(firstKeyword)}&data_type=RELATED_TOPICS&api_key=${apiKey}`
-        );
-        
-        if (!topicsResponse.ok) {
-            throw new Error(`SearchAPI topics error: ${topicsResponse.status}`);
-        }
-        
-        const topicsData = await topicsResponse.json();
-        
-        // Extract topic ID from response - look in top topics first
+        // Step 1: Get topic ID from Google Trends Autocomplete
+        console.log(`🔍 Trends: Fetching topic ID for "${firstKeyword}" via autocomplete...`);
         let topicId = null;
         let topicTitle = firstKeyword;
         
-        if (topicsData.related_topics?.top && topicsData.related_topics.top.length > 0) {
-            // Get the first/top topic
-            const topTopic = topicsData.related_topics.top[0];
-            topicId = topTopic.id; // e.g., "/m/05z1_" or "/g/11cjnkl9pk"
-            topicTitle = topTopic.title || firstKeyword;
-            console.log(`✅ Trends: Found topic ID "${topicId}" for "${topicTitle}"`);
+        try {
+            const autocompleteResponse = await fetch(
+                `https://www.searchapi.io/api/v1/search?engine=google_trends_autocomplete&q=${encodeURIComponent(firstKeyword)}&api_key=${apiKey}`
+            );
+            
+            if (autocompleteResponse.ok) {
+                const autocompleteData = await autocompleteResponse.json();
+                
+                // Look for a topic match in suggestions
+                if (autocompleteData.suggestions && autocompleteData.suggestions.length > 0) {
+                    // Find the first topic (has mid field) that matches our search
+                    const topicMatch = autocompleteData.suggestions.find(s => s.mid && s.type === 'Topic');
+                    if (topicMatch) {
+                        topicId = topicMatch.mid; // e.g., "/g/11cjnkl9pk"
+                        topicTitle = topicMatch.title || firstKeyword;
+                        console.log(`✅ Trends: Found topic ID "${topicId}" for "${topicTitle}"`);
+                    } else {
+                        // Fallback to first suggestion with mid
+                        const anyMatch = autocompleteData.suggestions.find(s => s.mid);
+                        if (anyMatch) {
+                            topicId = anyMatch.mid;
+                            topicTitle = anyMatch.title || firstKeyword;
+                            console.log(`✅ Trends: Found fallback topic ID "${topicId}" for "${topicTitle}"`);
+                        }
+                    }
+                }
+            }
+        } catch (autoErr) {
+            console.log(`⚠️ Trends: Autocomplete failed, using text search: ${autoErr.message}`);
         }
         
         // Step 2: Fetch TIMESERIES using topic ID (or fall back to text query)
