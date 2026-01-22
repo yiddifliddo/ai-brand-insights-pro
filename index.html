@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Brand Insights - Standex Scientific</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(135deg, #0c1222 0%, #1a1f35 50%, #0f172a 100%); min-height: 100vh; }
+        .glass { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.4); }
+        .glass-dark { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.3); }
+        .btn-primary { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+        .btn-primary:hover { background: linear-gradient(135deg, #38bdf8, #0ea5e9); }
+        .found-badge { background: linear-gradient(135deg, #10b981, #059669); }
+        .not-found-badge { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .tag-positive { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; }
+        .tag-negative { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; }
+        .stat-card { background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9)); border: 1px solid rgba(56, 189, 248, 0.1); }
+        .stat-card:hover { border-color: rgba(56, 189, 248, 0.3); }
+        .platform-btn { transition: all 0.2s; }
+        .platform-btn.active { background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; }
+        .rank-gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        .rank-silver { background: linear-gradient(135deg, #9ca3af, #6b7280); }
+        .rank-bronze { background: linear-gradient(135deg, #d97706, #b45309); }
+        .you-badge { background: linear-gradient(135deg, #22d3ee, #06b6d4); }
+        .sentiment-positive { background: #10b981; }
+        .sentiment-neutral { background: #6b7280; }
+        .sentiment-negative { background: #ef4444; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .radar-container { position: relative; width: 200px; height: 200px; }
+        .visibility-score { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .alert-warning { background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.05)); border: 1px solid rgba(245, 158, 11, 0.3); }
+        /* Info Tooltip Styles */
+        .info-tooltip { position: relative; display: inline-flex; align-items: center; margin-left: 6px; }
+        .info-icon { width: 16px; height: 16px; background: rgba(100, 116, 139, 0.5); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #94a3b8; cursor: help; transition: all 0.2s; }
+        .info-icon:hover { background: rgba(56, 189, 248, 0.3); color: #38bdf8; }
+        .info-tooltip .tooltip-text { visibility: hidden; opacity: 0; width: 280px; background: #1e293b; color: #e2e8f0; text-align: left; border-radius: 8px; padding: 12px; position: absolute; z-index: 1000; bottom: auto; top: 125%; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 400; line-height: 1.5; box-shadow: 0 10px 40px rgba(0,0,0,0.4); border: 1px solid #334155; transition: opacity 0.2s, visibility 0.2s; }
+        .info-tooltip .tooltip-text::after { content: ""; position: absolute; bottom: 100%; top: auto; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: transparent transparent #1e293b transparent; }
+        .info-tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body class="text-slate-100">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Glossary definitions
+        const glossary = {
+            visibility: "How often your brand appears when AI platforms answer relevant questions. A higher score means AI is more likely to mention your brand.",
+            sentiment: "Whether AI talks about your brand positively or negatively. Positive sentiment means AI recommends or praises your brand.",
+            mentions: "The number of times your brand name appears in AI responses across all queries tested.",
+            citations: "Links and sources that AI platforms reference when mentioning your brand. Shows where AI gets its information about you.",
+            queries: "Questions asked to AI platforms to test if your brand appears. Examples: 'Best laboratory freezers', 'What is American Biotech Supply?'",
+            competitors: "Rival brands in your market. The app tracks how often competitors appear vs. your brand to show competitive positioning.",
+            ranking: "Your position compared to competitors based on how often each brand is mentioned by AI platforms."
+        };
+        
+        // Info Tooltip Component
+        const InfoTooltip = ({ term }) => (
+            <span className="info-tooltip">
+                <span className="info-icon">i</span>
+                <span className="tooltip-text">{glossary[term]}</span>
+            </span>
+        );
+        
+        // API Helper
+        const api = {
+            token: localStorage.getItem('token'),
+            async request(endpoint, options = {}) {
+                const res = await fetch(`/api${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+                        ...options.headers
+                    },
+                    body: options.body ? JSON.stringify(options.body) : undefined
+                });
+                if (res.status === 401) {
+                    this.token = null;
+                    localStorage.removeItem('token');
+                    window.location.reload();
+                }
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Request failed');
+                return data;
+            },
+            get: (endpoint) => api.request(endpoint),
+            post: (endpoint, body) => api.request(endpoint, { method: 'POST', body }),
+            put: (endpoint, body) => api.request(endpoint, { method: 'PUT', body }),
+            delete: (endpoint) => api.request(endpoint, { method: 'DELETE' })
+        };
+
+        // Login Page
+        const LoginPage = ({ onLogin }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                try {
+                    const data = await api.post('/auth/login', { email, password });
+                    api.token = data.token;
+                    localStorage.setItem('token', data.token);
+                    onLogin(data.user);
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="glass rounded-2xl p-8 w-full max-w-md">
+                        <div className="flex items-center gap-3 mb-8">
+                            <img 
+                                src="https://americanbiotechsupply.com/wp-content/uploads/2026/01/SXI_BIG-416c9b33.png" 
+                                alt="Standex" 
+                                className="h-10 w-auto brightness-0 invert"
+                            />
+                            <div>
+                                <h1 className="text-xl font-bold">AI Brand Insights</h1>
+                                <p className="text-slate-400 text-sm">Standex Scientific</p>
+                            </div>
+                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">{error}</div>}
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500" required />
+                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500" required />
+                            <button type="submit" disabled={loading} className="w-full btn-primary text-white py-3 rounded-lg font-semibold">{loading ? 'Signing in...' : 'Sign In'}</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // Radar Chart Component
+        const RadarChart = ({ data }) => {
+            const canvasRef = useRef(null);
+            
+            useEffect(() => {
+                if (!canvasRef.current || !data) return;
+                
+                const ctx = canvasRef.current.getContext('2d');
+                
+                if (window.radarChart) {
+                    window.radarChart.destroy();
+                }
+                
+                window.radarChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Mentions', 'Ranking', 'Citations', 'Sentiment'],
+                        datasets: [{
+                            data: [data.mentions || 0, data.ranking || 0, data.citations || 0, data.sentiment || 0],
+                            backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                            borderColor: '#38bdf8',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#38bdf8',
+                            pointBorderColor: '#fff',
+                            pointRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { display: false },
+                                grid: { color: 'rgba(148, 163, 184, 0.15)' },
+                                angleLines: { color: 'rgba(148, 163, 184, 0.15)' },
+                                pointLabels: { color: '#94a3b8', font: { size: 13 } }
+                            }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }, [data]);
+            
+            return <canvas ref={canvasRef} style={{width: '100%', height: '100%'}}></canvas>;
+        };
+
+        // Main Dashboard
+        const Dashboard = ({ user, onLogout }) => {
+            const [brands, setBrands] = useState([]);
+            const [selectedBrand, setSelectedBrand] = useState(null);
+            const [activePlatform, setActivePlatform] = useState('all');
+            const [analysisData, setAnalysisData] = useState(null);
+            const [analyzing, setAnalyzing] = useState(false);
+            const [apiStatus, setApiStatus] = useState({});
+            const [page, setPage] = useState('dashboard');
+            const [historyData, setHistoryData] = useState(null);
+            const [expandedResponse, setExpandedResponse] = useState(null);
+            const [crawlerStats, setCrawlerStats] = useState(null);
+            const [trendsData, setTrendsData] = useState(null);
+            const [loadingTrends, setLoadingTrends] = useState(false);
+            const [menuOpen, setMenuOpen] = useState(false);
+            
+            useEffect(() => {
+                loadData();
+            }, []);
+            
+            useEffect(() => {
+                if (selectedBrand) {
+                    loadBrandAnalysis(selectedBrand);
+                    loadHistory(selectedBrand);
+                    // Load crawler stats for this brand's domain
+                    const brand = brands.find(b => b.id == selectedBrand);
+                    loadCrawlerStats(brand?.domain);
+                    loadTrends(selectedBrand);
+                }
+            }, [selectedBrand, activePlatform, brands, apiStatus.searchapi]);
+            
+            const loadTrends = async (brandId) => {
+                setLoadingTrends(true);
+                try {
+                    const data = await api.get(`/brands/${brandId}/trends`);
+                    setTrendsData(data);
+                } catch (err) {
+                    console.error('Failed to load trends:', err);
+                    setTrendsData(null);
+                } finally {
+                    setLoadingTrends(false);
+                }
+            };
+            
+            const loadCrawlerStats = async (brandDomain) => {
+                try {
+                    const url = brandDomain 
+                        ? `/crawler-stats?days=30&domain=${encodeURIComponent(brandDomain)}`
+                        : '/crawler-stats?days=30';
+                    const data = await api.get(url);
+                    setCrawlerStats(data);
+                } catch (err) {
+                    console.error('Failed to load crawler stats:', err);
+                }
+            };
+            
+            const loadData = async () => {
+                try {
+                    const [brandsData, statusData] = await Promise.all([
+                        api.get('/brands'),
+                        api.get('/admin/api-keys/status')
+                    ]);
+                    setBrands(brandsData);
+                    setApiStatus(statusData);
+                    if (brandsData.length > 0) {
+                        setSelectedBrand(brandsData[0].id);
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+            
+            const loadBrandAnalysis = async (brandId) => {
+                try {
+                    const data = await api.get(`/brands/${brandId}/latest-analysis${activePlatform !== 'all' ? `?platform=${activePlatform}` : ''}`);
+                    setAnalysisData(data);
+                } catch (err) {
+                    console.error('Failed to load analysis:', err);
+                    setAnalysisData(null);
+                }
+            };
+            
+            const loadHistory = async (brandId) => {
+                try {
+                    const data = await api.get(`/brands/${brandId}/history?days=30`);
+                    setHistoryData(data);
+                } catch (err) {
+                    console.error('Failed to load history:', err);
+                    setHistoryData(null);
+                }
+            };
+            
+            const runAnalysis = async () => {
+                if (!selectedBrand) return;
+                setAnalyzing(true);
+                try {
+                    const platforms = [];
+                    if (apiStatus.anthropic) platforms.push('claude');
+                    if (apiStatus.openai) platforms.push('chatgpt');
+                    if (apiStatus.google) platforms.push('gemini');
+                    if (apiStatus.mistral) platforms.push('mistral');
+                    if (apiStatus.perplexity) platforms.push('perplexity');
+                    
+                    if (platforms.length === 0) {
+                        alert('No API keys configured. Go to Settings to add API keys.');
+                        setAnalyzing(false);
+                        return;
+                    }
+                    
+                    await api.post(`/brands/${selectedBrand}/analyze`, { platforms });
+                    await loadBrandAnalysis(selectedBrand);
+                } catch (err) {
+                    alert('Analysis failed: ' + err.message);
+                } finally {
+                    setAnalyzing(false);
+                }
+            };
+            
+            const currentBrand = brands.find(b => b.id == selectedBrand);
+            
+            // Get data from analysis
+            const brand = analysisData?.brand || currentBrand;
+            const queries = analysisData?.results || [];
+            const dbCompetitors = analysisData?.competitors || [];
+            const dbCitations = analysisData?.citations || [];
+            const competitorMentionCounts = analysisData?.competitorMentions || {};
+            
+            // Calculate metrics from analysis data
+            const totalQueries = analysisData?.summary?.totalQueries || analysisData?.queries?.length || 0;
+            const totalMentions = analysisData?.summary?.totalMentions || queries.filter(q => q.mentioned).length;
+            const avgSentiment = analysisData?.summary?.avgSentiment || 50;
+            const visibilityScore = analysisData?.summary?.overallVisibility || 0;
+            const citationCount = analysisData?.summary?.citationCount || dbCitations.length;
+            
+            // Build competitor ranking from actual data
+            const brandMentions = totalMentions;
+            const competitorList = [
+                { name: brand?.name || 'Your Brand', mentions: brandMentions, isYou: true },
+                ...dbCompetitors.map(c => ({
+                    name: c.name,
+                    mentions: competitorMentionCounts[c.name] || 0,
+                    isYou: false
+                }))
+            ].sort((a, b) => b.mentions - a.mentions);
+            
+            // Calculate ranking position (1-based)
+            const rankingPosition = competitorList.findIndex(c => c.isYou) + 1;
+            
+            const metrics = {
+                visibility: visibilityScore,
+                mentions: totalMentions,
+                totalQueries: totalQueries,
+                sentiment: avgSentiment,
+                citations: citationCount,
+                ranking: rankingPosition
+            };
+            
+            // Get unique citations grouped by source
+            const citationGroups = {};
+            dbCitations.forEach(c => {
+                const source = c.source_url || c.url || 'Unknown';
+                const domain = source.replace(/^https?:\/\//, '').split('/')[0];
+                if (!citationGroups[domain]) {
+                    citationGroups[domain] = { source: domain, category: c.source_type || 'Other', count: 0, sentiment: 'neutral' };
+                }
+                citationGroups[domain].count++;
+            });
+            const citations = Object.values(citationGroups).sort((a, b) => b.count - a.count);
+            
+            // Get positive/negative keywords from results
+            const allPositive = [];
+            const allNegative = [];
+            queries.forEach(q => {
+                if (q.positive_keywords) allPositive.push(...q.positive_keywords);
+                if (q.negative_keywords) allNegative.push(...q.negative_keywords);
+            });
+            const positiveKeywords = [...new Set(allPositive)].slice(0, 6);
+            const negativeKeywords = [...new Set(allNegative)].slice(0, 3);
+            
+            // Visibility gaps - queries where brand was not found
+            const notFoundQueries = queries.filter(q => !q.mentioned);
+            const visibilityGaps = notFoundQueries.slice(0, 2).map(q => {
+                const text = q.query_text || '';
+                return text.replace(/^(what|where|best|top|how)\s+(are|is|can|do|to)?\s*/i, '').split(' ').slice(0, 4).join(' ');
+            }).filter(g => g.length > 0);
+
+            if (page === 'api-keys') {
+                return <APIKeysPage onBack={() => setPage('dashboard')} apiStatus={apiStatus} onUpdate={loadData} />;
+            }
+            
+            if (page === 'trends-settings') {
+                return <TrendsSettingsPage onBack={() => setPage('dashboard')} brands={brands} apiStatus={apiStatus} onUpdate={loadData} />;
+            }
+            
+            if (page === 'brands') {
+                return <BrandsPage onBack={() => setPage('dashboard')} brands={brands} onUpdate={loadData} />;
+            }
+            
+            if (page === 'sites') {
+                return <SitesPage onBack={() => setPage('dashboard')} />;
+            }
+
+            return (
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <header className="glass-dark sticky top-0 z-50 px-6 py-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-shrink-0 mr-4">
+                                <img 
+                                    src="https://americanbiotechsupply.com/wp-content/uploads/2026/01/SXI_BIG-416c9b33.png" 
+                                    alt="Standex" 
+                                    className="h-6 w-auto brightness-0 invert"
+                                />
+                                <div>
+                                    <h1 className="text-lg font-bold whitespace-nowrap">AI Brand Insights</h1>
+                                    <p className="text-slate-400 text-xs whitespace-nowrap">Standex Scientific</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                {/* Platform filters */}
+                                <div className="flex gap-2">
+                                    {[
+                                        { id: 'all', label: 'All Platforms', icon: '🌐' },
+                                        { id: 'chatgpt', label: 'ChatGPT', icon: '🤖' },
+                                        { id: 'gemini', label: 'Gemini', icon: '✨' },
+                                        { id: 'claude', label: 'Claude', icon: '🧠' },
+                                        { id: 'mistral', label: 'Mistral', icon: '🌀' },
+                                        { id: 'perplexity', label: 'Perplexity', icon: '🔍' }
+                                    ].map(p => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => setActivePlatform(p.id)}
+                                            className={`platform-btn flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                                                activePlatform === p.id 
+                                                    ? 'active border-sky-500 bg-sky-500/20' 
+                                                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                                            }`}
+                                        >
+                                            <span>{p.icon}</span>
+                                            <span className="hidden sm:inline">{p.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                {/* Brand selector */}
+                                <select
+                                    value={selectedBrand || ''}
+                                    onChange={e => setSelectedBrand(e.target.value)}
+                                    className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-sky-500"
+                                >
+                                    {brands.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                                
+                                {/* Refresh Data button */}
+                                <button
+                                    onClick={() => {
+                                        loadBrandAnalysis(selectedBrand);
+                                        loadHistory(selectedBrand);
+                                        const brand = brands.find(b => b.id == selectedBrand);
+                                        loadCrawlerStats(brand?.domain);
+                                        loadTrends(selectedBrand);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 hover:bg-slate-600 transition-colors"
+                                    title="Refresh Data"
+                                >
+                                    🔄 Refresh
+                                </button>
+                                
+                                {/* Run Analysis button */}
+                                <button
+                                    onClick={runAnalysis}
+                                    disabled={analyzing}
+                                    className="btn-primary flex items-center gap-2 px-5 py-2 rounded-lg font-medium text-sm disabled:opacity-50"
+                                >
+                                    {analyzing ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                            </svg>
+                                            <span>Analyzing...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>▶</span>
+                                            <span>Run Analysis</span>
+                                        </>
+                                    )}
+                                </button>
+                                
+                                {/* Hamburger Menu */}
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setMenuOpen(!menuOpen)}
+                                        className="p-2 text-slate-400 hover:text-white transition-colors"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                        </svg>
+                                    </button>
+                                    
+                                    {menuOpen && (
+                                        <div className="absolute right-0 top-12 w-72 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50">
+                                            <div className="py-2">
+                                                <button 
+                                                    onClick={() => { setPage('trends-settings'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>📈</span> Google Trends
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setPage('api-keys'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>🔑</span> API Keys
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setPage('brands'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>🏢</span> Brands & Competitors
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setPage('sites'); setMenuOpen(false); }}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3"
+                                                >
+                                                    <span>🌐</span> WordPress Sites
+                                                </button>
+                                                <div className="border-t border-slate-700 my-2"></div>
+                                                <button 
+                                                    onClick={onLogout}
+                                                    className="w-full px-4 py-3 text-left hover:bg-slate-700 text-red-400 flex items-center gap-3"
+                                                >
+                                                    <span>🚪</span> Sign out
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    {/* Main Content */}
+                    <main className="max-w-7xl mx-auto px-6 py-8">
+                        {/* Top Stats Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+                            {/* Radar Chart Card */}
+                            <div className="lg:col-span-5 glass rounded-2xl p-6">
+                                <div className="flex items-start justify-between mb-4">
+                                    <h3 className="text-lg font-semibold">AI Visibility Index <InfoTooltip term="visibility" /></h3>
+                                    <div className="text-right">
+                                        <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
+                                        <div className="text-slate-400 text-sm">/ 100</div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-center">
+                                    <div style={{width: '280px', height: '280px'}}>
+                                        <RadarChart data={{
+                                            mentions: Math.min(100, (metrics.mentions / Math.max(1, metrics.totalQueries)) * 100),
+                                            ranking: competitorList.length > 1 ? Math.round(100 - ((metrics.ranking - 1) / (competitorList.length - 1)) * 100) : 100,
+                                            citations: Math.min(100, metrics.citations * 5),
+                                            sentiment: metrics.sentiment
+                                        }} />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Stats Cards */}
+                            <div className="lg:col-span-7 grid grid-cols-2 gap-4">
+                                <div className="stat-card rounded-xl p-5">
+                                    <p className="text-slate-400 text-sm mb-1">Mentions <InfoTooltip term="mentions" /></p>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-bold">{metrics.mentions}</span>
+                                        {metrics.mentions > 0 && <span className="text-emerald-400 text-sm">↑ 12%</span>}
+                                    </div>
+                                    <p className="text-slate-500 text-xs mt-1">{metrics.totalQueries} queries total</p>
+                                </div>
+                                
+                                <div className="stat-card rounded-xl p-5">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-slate-400 text-sm mb-1">Competitor Ranking <InfoTooltip term="ranking" /></p>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-bold">#{competitorList.findIndex(c => c.isYou) + 1 || '-'}</span>
+                                                {competitorList.findIndex(c => c.isYou) === 0 && <span className="text-emerald-400 text-sm">↑ 5%</span>}
+                                            </div>
+                                            <p className="text-slate-500 text-xs mt-1">Among {competitorList.length} competitors</p>
+                                        </div>
+                                        <span className="text-2xl">🏆</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="stat-card rounded-xl p-5">
+                                    <p className="text-slate-400 text-sm mb-1">Citations <InfoTooltip term="citations" /></p>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-bold">{metrics.citations}</span>
+                                        {metrics.citations > 0 && <span className="text-emerald-400 text-sm">↑ 8%</span>}
+                                    </div>
+                                    <p className="text-slate-500 text-xs mt-1">Across all sources</p>
+                                </div>
+                                
+                                <div className="stat-card rounded-xl p-5">
+                                    <p className="text-slate-400 text-sm mb-1">Positive Sentiment <InfoTooltip term="sentiment" /></p>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-3xl font-bold">{metrics.sentiment}%</span>
+                                        {metrics.sentiment > 50 && <span className="text-emerald-400 text-sm">↑ 3%</span>}
+                                    </div>
+                                    <p className="text-slate-500 text-xs mt-1">Based on AI responses</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Mentions & Competitor Ranking Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Mentions */}
+                            <div className="glass rounded-2xl p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-semibold">Mentions <InfoTooltip term="mentions" /></h3>
+                                    <span className="text-slate-400 text-sm">{metrics.mentions} / {metrics.totalQueries} queries</span>
+                                </div>
+                                <div className="space-y-3 max-h-80 overflow-y-auto">
+                                    {queries.map((q, i) => (
+                                        <div key={i} className="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${q.mentioned ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                    {q.mentioned ? '✓' : '✗'}
+                                                </span>
+                                                <span className="text-sm">{q.query_text}</span>
+                                            </div>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${q.mentioned ? 'found-badge' : 'not-found-badge'}`}>
+                                                {q.mentioned ? 'Found' : 'Not found'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {queries.length === 0 && (
+                                        <p className="text-slate-500 text-center py-8">Run analysis to see mentions</p>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {/* Competitor Ranking */}
+                            <div className="glass rounded-2xl p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-semibold">Competitor Ranking <InfoTooltip term="competitors" /></h3>
+                                    <span className="text-slate-400 text-sm">Brands with most mentions</span>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-12 text-xs text-slate-400 px-3 pb-2 border-b border-slate-700">
+                                        <span className="col-span-2">Rank</span>
+                                        <span className="col-span-7">Brand</span>
+                                        <span className="col-span-3 text-right">Mentions</span>
+                                    </div>
+                                    {competitorList.map((c, i) => (
+                                        <div key={i} className="grid grid-cols-12 items-center p-3 bg-slate-800/40 rounded-lg">
+                                            <div className="col-span-2">
+                                                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                    i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : 'bg-slate-700'
+                                                }`}>
+                                                    #{i + 1}
+                                                </span>
+                                            </div>
+                                            <div className="col-span-7 flex items-center gap-2">
+                                                <span className={c.isYou ? 'text-cyan-400 font-medium' : ''}>{c.name}</span>
+                                                {c.isYou && <span className="you-badge px-2 py-0.5 rounded text-xs font-medium">You</span>}
+                                            </div>
+                                            <div className="col-span-3 text-right text-slate-400">
+                                                {c.mentions} / {metrics.totalQueries || 8}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {competitorList.length === 0 && (
+                                        <p className="text-slate-500 text-center py-4">No competitor data yet</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Citations Table */}
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold">Citations <InfoTooltip term="citations" /></h3>
+                                    <p className="text-slate-400 text-sm">Sources where your brand was cited</p>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <select className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+                                        <option>All categories</option>
+                                        <option>Own Site</option>
+                                        <option>Industry Publication</option>
+                                        <option>Academic</option>
+                                    </select>
+                                    <span className="text-2xl font-bold">{citations.reduce((sum, c) => sum + c.count, 0)} <span className="text-slate-400 text-sm font-normal">citations</span></span>
+                                </div>
+                            </div>
+                            {citations.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="text-left text-xs text-slate-400 border-b border-slate-700">
+                                                <th className="pb-3 font-medium">Source</th>
+                                                <th className="pb-3 font-medium">Category</th>
+                                                <th className="pb-3 font-medium text-center">Count</th>
+                                                <th className="pb-3 font-medium text-center">Sentiment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {citations.map((c, i) => (
+                                                <tr key={i} className="border-b border-slate-800">
+                                                    <td className="py-4">
+                                                        <a href={`https://${c.source}`} target="_blank" className="text-sky-400 hover:underline">{c.source}</a>
+                                                    </td>
+                                                    <td className="py-4 text-slate-400">{c.category}</td>
+                                                    <td className="py-4 text-center">{c.count}</td>
+                                                    <td className="py-4 text-center">
+                                                        <span className={`w-3 h-3 rounded-full inline-block ${
+                                                            c.sentiment === 'positive' ? 'sentiment-positive' : c.sentiment === 'negative' ? 'sentiment-negative' : 'sentiment-neutral'
+                                                        }`}></span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-center py-8">
+                                    {queries.length > 0 ? 'No citations found. Try running analysis with Perplexity for citation data.' : 'Run analysis to see citations'}
+                                </p>
+                            )}
+                        </div>
+                        
+                        {/* Visibility Trends Over Time */}
+                        {historyData && historyData.trend && historyData.trend.length > 1 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">📈 Visibility Trends</h3>
+                                        <p className="text-slate-400 text-sm">Track your brand's AI visibility over time</p>
+                                    </div>
+                                    <span className="text-sm text-slate-400">Last 30 days • {historyData.totalRuns} analyses</span>
+                                </div>
+                                <div className="h-64 relative">
+                                    <div className="absolute inset-0 flex items-end justify-between gap-1">
+                                        {historyData.trend.map((d, i) => (
+                                            <div key={i} className="flex-1 flex flex-col items-center group">
+                                                <div className="w-full bg-slate-800 rounded-t relative" style={{height: `${Math.max(d.visibility, 5)}%`}}>
+                                                    <div 
+                                                        className="absolute bottom-0 w-full bg-gradient-to-t from-sky-500 to-sky-400 rounded-t transition-all"
+                                                        style={{height: `${d.mentionRate}%`}}
+                                                    ></div>
+                                                    <div className="opacity-0 group-hover:opacity-100 absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs whitespace-nowrap z-10">
+                                                        <div className="font-semibold">{new Date(d.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</div>
+                                                        <div>Visibility: {d.visibility}%</div>
+                                                        <div>Mentions: {d.mentionRate}%</div>
+                                                        <div>Sentiment: {d.sentiment}%</div>
+                                                    </div>
+                                                </div>
+                                                <span className="text-xs text-slate-500 mt-1 rotate-45 origin-left">{new Date(d.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex justify-center gap-6 mt-4 text-sm">
+                                    <span className="flex items-center gap-2"><span className="w-3 h-3 bg-slate-800 rounded"></span> Visibility Score</span>
+                                    <span className="flex items-center gap-2"><span className="w-3 h-3 bg-sky-500 rounded"></span> Mention Rate</span>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* AI Conversation Analysis - Response Viewer */}
+                        {queries.length > 0 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">🤖 AI Conversation Analysis</h3>
+                                        <p className="text-slate-400 text-sm">Read actual AI responses to understand positioning</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {queries.slice(0, 10).map((q, i) => (
+                                        <div key={i} className="border border-slate-700 rounded-xl overflow-hidden">
+                                            <button 
+                                                onClick={() => setExpandedResponse(expandedResponse === i ? null : i)}
+                                                className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors text-left"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                        q.platform === 'chatgpt' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                        q.platform === 'claude' ? 'bg-orange-500/20 text-orange-400' :
+                                                        q.platform === 'gemini' ? 'bg-blue-500/20 text-blue-400' :
+                                                        q.platform === 'mistral' ? 'bg-purple-500/20 text-purple-400' :
+                                                        'bg-cyan-500/20 text-cyan-400'
+                                                    }`}>{q.platform}</span>
+                                                    <span className="font-medium">{q.query_text}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    {q.mentioned ? (
+                                                        <span className="text-emerald-400 text-sm flex items-center gap-1">
+                                                            ✓ Mentioned
+                                                            {q.sentiment_score >= 60 && <span className="text-xs">(Positive)</span>}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-500 text-sm">Not mentioned</span>
+                                                    )}
+                                                    <svg className={`w-5 h-5 transition-transform ${expandedResponse === i ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
+                                            </button>
+                                            {expandedResponse === i && q.response_text && (
+                                                <div className="px-4 pb-4 border-t border-slate-700">
+                                                    <div className="bg-slate-900/50 rounded-lg p-4 mt-3 max-h-64 overflow-y-auto">
+                                                        <p className="text-sm text-slate-300 whitespace-pre-wrap">{q.response_text}</p>
+                                                    </div>
+                                                    <div className="flex gap-4 mt-3 text-xs">
+                                                        <span className="text-slate-400">Sentiment: <span className={q.sentiment_score >= 60 ? 'text-emerald-400' : q.sentiment_score <= 40 ? 'text-red-400' : 'text-slate-300'}>{q.sentiment_score}%</span></span>
+                                                        {Object.keys(q.competitor_mentions || {}).length > 0 && (
+                                                            <span className="text-slate-400">
+                                                                Competitors mentioned: {Object.entries(q.competitor_mentions).map(([name, count]) => `${name} (${count})`).join(', ')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Competitor Benchmark Table */}
+                        {competitorList.length > 1 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">📊 Competitor Benchmark</h3>
+                                        <p className="text-slate-400 text-sm">See exactly where you stand against competitors</p>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="text-left text-xs text-slate-400 border-b border-slate-700">
+                                                <th className="pb-3 font-medium">Rank</th>
+                                                <th className="pb-3 font-medium">Brand</th>
+                                                <th className="pb-3 font-medium text-center">Mentions</th>
+                                                <th className="pb-3 font-medium text-center">Share of Voice</th>
+                                                <th className="pb-3 font-medium text-center">Visibility Score</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {competitorList.map((c, i) => {
+                                                const totalMentionsAll = competitorList.reduce((sum, comp) => sum + comp.mentions, 0);
+                                                const shareOfVoice = totalMentionsAll > 0 ? Math.round((c.mentions / totalMentionsAll) * 100) : 0;
+                                                const visScore = totalQueries > 0 ? Math.round((c.mentions / totalQueries) * 100) : 0;
+                                                
+                                                return (
+                                                    <tr key={i} className={`border-b border-slate-800 ${c.isYou ? 'bg-sky-500/10' : ''}`}>
+                                                        <td className="py-4">
+                                                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                                                i === 0 ? 'bg-amber-500/20 text-amber-400' :
+                                                                i === 1 ? 'bg-slate-400/20 text-slate-300' :
+                                                                i === 2 ? 'bg-orange-700/20 text-orange-500' :
+                                                                'bg-slate-700 text-slate-400'
+                                                            }`}>
+                                                                {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`font-medium ${c.isYou ? 'text-sky-400' : ''}`}>{c.name}</span>
+                                                                {c.isYou && <span className="text-xs bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">You</span>}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 text-center font-semibold">{c.mentions}</td>
+                                                        <td className="py-4">
+                                                            <div className="flex items-center gap-2 justify-center">
+                                                                <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                                    <div className={`h-full rounded-full ${c.isYou ? 'bg-sky-500' : 'bg-slate-500'}`} style={{width: `${shareOfVoice}%`}}></div>
+                                                                </div>
+                                                                <span className="text-sm w-12">{shareOfVoice}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-4 text-center">
+                                                            <span className={`text-lg font-bold ${visScore >= 50 ? 'text-emerald-400' : visScore >= 25 ? 'text-amber-400' : 'text-slate-400'}`}>
+                                                                {visScore}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Sentiment Comparison */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Brand Sentiment */}
+                            <div className="glass rounded-2xl p-6">
+                                <h3 className="text-lg font-semibold mb-1">Brand Sentiment <InfoTooltip term="sentiment" /></h3>
+                                <p className="text-slate-400 text-sm mb-4">{brand?.name || 'Your Brand'}</p>
+                                <div className="flex items-baseline gap-2 mb-4">
+                                    <span className="text-5xl font-bold text-emerald-400">{metrics.sentiment}%</span>
+                                    <span className="text-slate-400">positive</span>
+                                    {metrics.sentiment > 50 && <span className="text-emerald-400 text-sm">+{metrics.sentiment - 50}</span>}
+                                </div>
+                                <div className="h-2 bg-slate-700 rounded-full mb-6 overflow-hidden">
+                                    <div className="h-full bg-emerald-500 rounded-full" style={{width: `${metrics.sentiment}%`}}></div>
+                                </div>
+                                {positiveKeywords.length > 0 && (
+                                    <div className="mb-4">
+                                        <p className="text-slate-400 text-sm mb-2">Positive keywords</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {positiveKeywords.map((k, i) => (
+                                                <span key={i} className="tag-positive px-3 py-1 rounded-full text-xs">{k}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {negativeKeywords.length > 0 && (
+                                    <div>
+                                        <p className="text-slate-400 text-sm mb-2">Negative keywords</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {negativeKeywords.map((k, i) => (
+                                                <span key={i} className="tag-negative px-3 py-1 rounded-full text-xs">{k}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {positiveKeywords.length === 0 && negativeKeywords.length === 0 && (
+                                    <p className="text-slate-500 text-sm">Run analysis to see sentiment keywords</p>
+                                )}
+                            </div>
+                            
+                            {/* Top Competitor Sentiment */}
+                            <div className="glass rounded-2xl p-6">
+                                <h3 className="text-lg font-semibold mb-1">Top Competitor Sentiment</h3>
+                                <p className="text-slate-400 text-sm mb-4">{competitorList.find(c => !c.isYou)?.name || 'N/A'}</p>
+                                <div className="flex items-baseline gap-2 mb-4">
+                                    <span className="text-5xl font-bold text-slate-400">--</span>
+                                    <span className="text-slate-400">positive</span>
+                                </div>
+                                <div className="h-2 bg-slate-700 rounded-full mb-6 overflow-hidden">
+                                    <div className="h-full bg-slate-600 rounded-full" style={{width: '0%'}}></div>
+                                </div>
+                                <p className="text-slate-500 text-sm">Competitor sentiment analysis coming soon</p>
+                            </div>
+                        </div>
+                        
+                        {/* Visibility Gap Alert */}
+                        {visibilityGaps.length > 0 && (
+                            <div className="alert-warning rounded-2xl p-6">
+                                <div className="flex items-start gap-4">
+                                    <span className="text-2xl">⚠️</span>
+                                    <div>
+                                        <h3 className="font-semibold text-amber-400 mb-1">Visibility Gap Identified</h3>
+                                        <p className="text-slate-300">
+                                            Your brand is not being mentioned for "{visibilityGaps[0] || 'cryogenic storage solutions'}" and "{visibilityGaps[1] || 'affordable lab freezers'}" queries. Consider creating content targeting these terms to improve AI visibility.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Google Trends Panel */}
+                        {trendsData && trendsData.interest_over_time && trendsData.interest_over_time.length > 0 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">📈 Google Trends</h3>
+                                        <p className="text-slate-400 text-sm">Search interest for {trendsData.keywords?.join(', ')}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => loadTrends(selectedBrand)}
+                                        className="text-sky-400 hover:text-sky-300 text-sm"
+                                    >
+                                        🔄 Refresh
+                                    </button>
+                                </div>
+                                
+                                {/* Interest Over Time Chart */}
+                                <div className="bg-slate-800/30 rounded-xl p-4 mb-4">
+                                    <h4 className="text-sm font-medium text-slate-400 mb-3">Interest Over Time</h4>
+                                    <div className="h-48 flex items-end gap-1">
+                                        {trendsData.interest_over_time.slice(-30).map((point, i) => {
+                                            const maxValue = Math.max(...trendsData.interest_over_time.slice(-30).map(p => 
+                                                p.values ? Math.max(...p.values.map(v => v.value || 0)) : 0
+                                            ));
+                                            const value = point.values?.[0]?.value || 0;
+                                            const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                                            return (
+                                                <div key={i} className="flex-1 flex flex-col items-center group">
+                                                    <div 
+                                                        className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t transition-all hover:from-emerald-400 hover:to-emerald-300"
+                                                        style={{height: `${Math.max(height, 2)}%`}}
+                                                        title={`${point.date}: ${value}`}
+                                                    ></div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="flex justify-between text-xs text-slate-500 mt-2">
+                                        <span>{trendsData.interest_over_time[0]?.date}</span>
+                                        <span>{trendsData.interest_over_time[trendsData.interest_over_time.length - 1]?.date}</span>
+                                    </div>
+                                </div>
+                                
+                                {/* Keyword Comparison */}
+                                {trendsData.keywords && trendsData.keywords.length > 1 && (
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {trendsData.interest_over_time.slice(-1)[0]?.values?.map((v, i) => (
+                                            <div key={i} className="bg-slate-800/30 rounded-lg p-3 text-center">
+                                                <div className="text-2xl font-bold text-emerald-400">{v.value || 0}</div>
+                                                <div className="text-xs text-slate-400 truncate">{v.query || trendsData.keywords[i]}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {/* Related Queries */}
+                                {trendsData.related_queries && trendsData.related_queries.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-slate-700">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Related Queries</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {trendsData.related_queries.slice(0, 10).map((q, i) => (
+                                                <span key={i} className="px-3 py-1 bg-slate-800/50 rounded-full text-sm text-slate-300">
+                                                    {q.query}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* No trends data - prompt to set up */}
+                        {!trendsData && !loadingTrends && !apiStatus.searchapi && (
+                            <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
+                                <div className="text-center py-4">
+                                    <span className="text-4xl mb-4 block">📈</span>
+                                    <h3 className="text-lg font-semibold mb-2">Google Trends Data</h3>
+                                    <p className="text-slate-400 mb-4">Add a SearchAPI key to see Google Trends data for your products.</p>
+                                    <button onClick={() => setPage('api-keys')} className="btn-primary px-6 py-2 rounded-lg">
+                                        Add SearchAPI Key →
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {loadingTrends && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="text-center py-8">
+                                    <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                                    <p className="text-slate-400">Loading Google Trends data...</p>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Key configured but no trends data - offer refresh */}
+                        {!trendsData && !loadingTrends && apiStatus.searchapi && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="text-center py-4">
+                                    <span className="text-4xl mb-4 block">📈</span>
+                                    <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
+                                    <p className="text-slate-400 mb-4">No trends data available. Make sure the brand has keywords set.</p>
+                                    <button onClick={() => loadTrends(selectedBrand)} className="btn-primary px-6 py-2 rounded-lg">
+                                        🔄 Load Trends Data
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Website Crawler Activity (from WordPress) */}
+                        {crawlerStats && crawlerStats.totalCrawlerVisits > 0 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">🌐 Website AI Crawler Activity</h3>
+                                        <p className="text-slate-400 text-sm">AI bots visiting {brand?.domain || 'your websites'} (last 30 days)</p>
+                                    </div>
+                                    <button onClick={() => setPage('sites')} className="text-sky-400 hover:text-sky-300 text-sm">
+                                        Manage Sites →
+                                    </button>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-sky-400">{crawlerStats.totalCrawlerVisits.toLocaleString()}</div>
+                                        <div className="text-slate-400 text-sm">Bot Visits</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-emerald-400">{crawlerStats.totalReferralVisits.toLocaleString()}</div>
+                                        <div className="text-slate-400 text-sm">Human Referrals</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-amber-400">{crawlerStats.byCompany?.length || 0}</div>
+                                        <div className="text-slate-400 text-sm">AI Companies</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 text-center">
+                                        <div className="text-3xl font-bold text-purple-400">{crawlerStats.bySite?.length || 0}</div>
+                                        <div className="text-slate-400 text-sm">Sites Tracked</div>
+                                    </div>
+                                </div>
+                                
+                                {/* By Site Breakdown */}
+                                {crawlerStats.bySite && crawlerStats.bySite.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Activity by Site</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {crawlerStats.bySite.map((s, i) => (
+                                                <div key={i} className="bg-slate-800/30 rounded-lg p-4">
+                                                    <div className="font-medium text-white mb-1">{s.site_domain}</div>
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-slate-400">Bot visits:</span>
+                                                        <span className="text-sky-400 font-semibold">{s.visits}</span>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 mt-1">{s.companies}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {crawlerStats.byCompany && crawlerStats.byCompany.length > 0 && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-slate-400 mb-3">Crawlers by Company</h4>
+                                            <div className="space-y-2">
+                                                {crawlerStats.byCompany.slice(0, 5).map((c, i) => (
+                                                    <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                                                        <span className="flex items-center gap-2">
+                                                            <span>{c.company === 'OpenAI' ? '🤖' : c.company === 'Anthropic' ? '🧠' : c.company === 'Google' ? '✨' : c.company === 'Perplexity' ? '🔍' : c.company === 'Amazon' ? '📦' : '🌐'}</span>
+                                                            {c.company}
+                                                        </span>
+                                                        <span className="font-semibold">{c.visits.toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Bot Type Breakdown Donut */}
+                                    {crawlerStats.byType && crawlerStats.byType.length > 0 && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-slate-400 mb-3">Bot Type Breakdown</h4>
+                                            <div className="flex items-center gap-6">
+                                                <div className="relative w-32 h-32">
+                                                    <svg viewBox="0 0 36 36" className="w-full h-full">
+                                                        {(() => {
+                                                            const total = crawlerStats.byType.reduce((sum, t) => sum + t.visits, 0);
+                                                            let offset = 0;
+                                                            const colors = {
+                                                                'training': '#f59e0b',
+                                                                'retrieval': '#3b82f6',
+                                                                'index': '#10b981',
+                                                                'search': '#8b5cf6'
+                                                            };
+                                                            return crawlerStats.byType.map((t, i) => {
+                                                                const pct = (t.visits / total) * 100;
+                                                                const dashArray = `${pct} ${100 - pct}`;
+                                                                const color = colors[t.bot_type] || '#64748b';
+                                                                const el = (
+                                                                    <circle
+                                                                        key={i}
+                                                                        cx="18" cy="18" r="15.9"
+                                                                        fill="transparent"
+                                                                        stroke={color}
+                                                                        strokeWidth="3.5"
+                                                                        strokeDasharray={dashArray}
+                                                                        strokeDashoffset={-offset}
+                                                                        transform="rotate(-90 18 18)"
+                                                                    />
+                                                                );
+                                                                offset += pct;
+                                                                return el;
+                                                            });
+                                                        })()}
+                                                        <circle cx="18" cy="18" r="12" fill="#1e293b" />
+                                                    </svg>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {crawlerStats.byType.map((t, i) => {
+                                                        const colors = {
+                                                            'training': 'bg-amber-500',
+                                                            'retrieval': 'bg-blue-500',
+                                                            'index': 'bg-emerald-500',
+                                                            'search': 'bg-purple-500'
+                                                        };
+                                                        const labels = {
+                                                            'training': 'Training Data',
+                                                            'retrieval': 'Real-time Retrieval',
+                                                            'index': 'Index Building',
+                                                            'search': 'Search'
+                                                        };
+                                                        return (
+                                                            <div key={i} className="flex items-center gap-2 text-sm">
+                                                                <span className={`w-3 h-3 rounded-full ${colors[t.bot_type] || 'bg-slate-500'}`}></span>
+                                                                <span className="text-slate-300">{labels[t.bot_type] || t.bot_type}</span>
+                                                                <span className="text-slate-500">({t.visits})</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {crawlerStats.topPages && crawlerStats.topPages.length > 0 && (
+                                    <div className="mt-6">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Most Crawled Pages</h4>
+                                        <div className="space-y-2">
+                                            {crawlerStats.topPages.slice(0, 5).map((p, i) => (
+                                                <div key={i} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                                                    <span className="text-sm truncate max-w-xs" title={p.page_url}>
+                                                        {p.page_url?.replace(/^https?:\/\/[^\/]+/, '') || '/'}
+                                                    </span>
+                                                    <span className="font-semibold text-sky-400">{p.visits}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {crawlerStats.referralsByPlatform && crawlerStats.referralsByPlatform.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-slate-700">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Human Traffic from AI Platforms</h4>
+                                        <div className="flex flex-wrap gap-3">
+                                            {crawlerStats.referralsByPlatform.map((r, i) => (
+                                                <div key={i} className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-full">
+                                                    <span>{r.platform_name}</span>
+                                                    <span className="font-bold">{r.visits}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* No crawler data - prompt to set up */}
+                        {(!crawlerStats || crawlerStats.totalCrawlerVisits === 0) && (
+                            <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
+                                <div className="text-center py-4">
+                                    <span className="text-4xl mb-4 block">🌐</span>
+                                    <h3 className="text-lg font-semibold mb-2">Track AI Crawlers on Your Websites</h3>
+                                    <p className="text-slate-400 mb-4">Install the WordPress plugin to see which AI bots are visiting your sites.</p>
+                                    <button onClick={() => setPage('sites')} className="btn-primary px-6 py-2 rounded-lg">
+                                        Set Up Website Tracking →
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Footer */}
+                        <footer className="text-center text-slate-500 text-sm mt-12 pb-8">
+                            AI Brand Insights for Standex Scientific • Last analysis: {new Date().toLocaleDateString()}
+                        </footer>
+                    </main>
+                </div>
+            );
+        };
+
+        // Google Trends Settings Page
+        const TrendsSettingsPage = ({ onBack, brands, apiStatus, onUpdate }) => {
+            const [searchApiKey, setSearchApiKey] = useState('');
+            const [brandKeywords, setBrandKeywords] = useState({});
+            const [saving, setSaving] = useState(false);
+            const [savedMessage, setSavedMessage] = useState('');
+            
+            useEffect(() => {
+                loadSearchApiKey();
+                loadBrandKeywords();
+            }, [brands]);
+            
+            const loadSearchApiKey = async () => {
+                try {
+                    const data = await api.get('/admin/api-keys');
+                    const searchapi = data.find(k => k.platform === 'searchapi');
+                    // Don't load masked key - just leave empty, apiStatus shows if configured
+                } catch (err) {}
+            };
+            
+            const loadBrandKeywords = async () => {
+                const keywords = {};
+                for (const brand of brands) {
+                    try {
+                        const data = await api.get(`/brands/${brand.id}`);
+                        keywords[brand.id] = data.keywords || '';
+                    } catch (err) {}
+                }
+                setBrandKeywords(keywords);
+            };
+            
+            const saveApiKey = async () => {
+                if (!searchApiKey || !searchApiKey.trim()) return;
+                setSaving(true);
+                try {
+                    await api.post('/admin/api-keys', { platform: 'searchapi', api_key: searchApiKey.trim() });
+                    setSavedMessage('API key saved!');
+                    setTimeout(() => setSavedMessage(''), 3000);
+                    onUpdate();
+                } catch (err) {
+                    alert('Failed to save API key: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const saveKeywords = async (brandId) => {
+                setSaving(true);
+                try {
+                    const brand = brands.find(b => b.id === brandId);
+                    await api.put(`/brands/${brandId}`, { 
+                        name: brand.name, 
+                        domain: brand.domain,
+                        keywords: brandKeywords[brandId] || ''
+                    });
+                    setSavedMessage(`Keywords saved for ${brand.name}!`);
+                    setTimeout(() => setSavedMessage(''), 3000);
+                } catch (err) {
+                    alert('Failed to save keywords: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen p-8">
+                    <div className="max-w-3xl mx-auto">
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
+                            ← Back to Dashboard
+                        </button>
+                        
+                        <h2 className="text-2xl font-bold mb-2">📈 Google Trends Settings</h2>
+                        <p className="text-slate-400 mb-6">Configure Google Trends to track search interest for your products.</p>
+                        
+                        {savedMessage && (
+                            <div className="bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 px-4 py-3 rounded-lg mb-6">
+                                ✓ {savedMessage}
+                            </div>
+                        )}
+                        
+                        {/* SearchAPI Key */}
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-2">SearchAPI Key</h3>
+                            <p className="text-slate-400 text-sm mb-4">
+                                Get your API key from <a href="https://www.searchapi.io/dashboard" target="_blank" className="text-sky-400 hover:underline">searchapi.io/dashboard</a>
+                            </p>
+                            <div className="flex gap-3">
+                                <input
+                                    type="password"
+                                    value={searchApiKey}
+                                    onChange={(e) => setSearchApiKey(e.target.value)}
+                                    placeholder="Enter your SearchAPI key"
+                                    className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 focus:border-sky-500 focus:outline-none"
+                                />
+                                <button
+                                    onClick={saveApiKey}
+                                    disabled={saving || !searchApiKey || !searchApiKey.trim()}
+                                    className="btn-primary px-6 py-3 rounded-lg disabled:opacity-50"
+                                >
+                                    {saving ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                            {apiStatus.searchapi && (
+                                <p className="text-emerald-400 text-sm mt-2">✓ API key configured</p>
+                            )}
+                        </div>
+                        
+                        {/* Brand Keywords */}
+                        <div className="glass rounded-2xl p-6">
+                            <h3 className="font-semibold mb-2">Brand Keywords</h3>
+                            <p className="text-slate-400 text-sm mb-4">
+                                Enter keywords for each brand to track on Google Trends (comma separated).
+                            </p>
+                            
+                            <div className="space-y-4">
+                                {brands.map(brand => (
+                                    <div key={brand.id} className="bg-slate-800/50 rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="font-medium">{brand.name}</h4>
+                                            <span className="text-xs text-slate-500">{brand.domain}</span>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <input
+                                                type="text"
+                                                value={brandKeywords[brand.id] || ''}
+                                                onChange={(e) => setBrandKeywords({...brandKeywords, [brand.id]: e.target.value})}
+                                                placeholder="e.g. lab freezers, cryogenic storage, medical refrigerators"
+                                                className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                                            />
+                                            <button
+                                                onClick={() => saveKeywords(brand.id)}
+                                                disabled={saving}
+                                                className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {/* Instructions */}
+                        <div className="glass rounded-2xl p-6 mt-6 border border-dashed border-slate-600">
+                            <h3 className="font-semibold mb-3">📋 Setup Instructions</h3>
+                            <ol className="list-decimal list-inside space-y-2 text-slate-400 text-sm">
+                                <li>Sign up at <a href="https://www.searchapi.io" target="_blank" className="text-sky-400 hover:underline">searchapi.io</a></li>
+                                <li>Copy your API key from the dashboard</li>
+                                <li>Paste it above and click Save</li>
+                                <li>Add keywords for each brand you want to track</li>
+                                <li>Go back to dashboard to see trends data</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // API Keys Page
+        const APIKeysPage = ({ onBack, apiStatus, onUpdate }) => {
+            const [keys, setKeys] = useState([]);
+            const [newKey, setNewKey] = useState({ platform: 'openai', api_key: '' });
+            const [saving, setSaving] = useState(false);
+            
+            useEffect(() => {
+                loadKeys();
+            }, []);
+            
+            const loadKeys = async () => {
+                try {
+                    const data = await api.get('/admin/api-keys');
+                    setKeys(data);
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+            
+            const saveKey = async () => {
+                setSaving(true);
+                try {
+                    await api.post('/admin/api-keys', newKey);
+                    setNewKey({ ...newKey, api_key: '' });
+                    await loadKeys();
+                    onUpdate();
+                } catch (err) {
+                    alert(err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const platforms = [
+                { id: 'openai', name: 'OpenAI (ChatGPT)', icon: '🤖', link: 'https://platform.openai.com/api-keys' },
+                { id: 'google', name: 'Google (Gemini)', icon: '✨', link: 'https://aistudio.google.com/app/apikey' },
+                { id: 'anthropic', name: 'Anthropic (Claude)', icon: '🧠', link: 'https://console.anthropic.com/settings/keys' },
+                { id: 'mistral', name: 'Mistral AI', icon: '🌀', link: 'https://console.mistral.ai/api-keys' },
+                { id: 'perplexity', name: 'Perplexity', icon: '🔍', link: 'https://www.perplexity.ai/settings/api' },
+                { id: 'searchapi', name: 'SearchAPI (Google Trends)', icon: '📈', link: 'https://www.searchapi.io/dashboard' }
+            ];
+            
+            return (
+                <div className="min-h-screen p-8">
+                    <div className="max-w-3xl mx-auto">
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
+                            ← Back to Dashboard
+                        </button>
+                        
+                        <h2 className="text-2xl font-bold mb-6">API Key Management</h2>
+                        
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-4">Current Keys</h3>
+                            <div className="space-y-3">
+                                {platforms.map(p => {
+                                    const key = keys.find(k => k.platform === p.id);
+                                    return (
+                                        <div key={p.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xl">{p.icon}</span>
+                                                <div>
+                                                    <p className="font-medium">{p.name}</p>
+                                                    <p className="text-sm text-slate-400">{key ? key.api_key_masked : 'Not configured'}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`px-2 py-1 rounded text-xs ${key ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                {key ? 'Active' : 'Missing'}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-4">Add/Update Key</h3>
+                            <div className="flex gap-4">
+                                <select
+                                    value={newKey.platform}
+                                    onChange={e => setNewKey({ ...newKey, platform: e.target.value })}
+                                    className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"
+                                >
+                                    {platforms.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="password"
+                                    value={newKey.api_key}
+                                    onChange={e => setNewKey({ ...newKey, api_key: e.target.value })}
+                                    placeholder="Enter API key..."
+                                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"
+                                />
+                                <button onClick={saveKey} disabled={saving || !newKey.api_key} className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50">
+                                    {saving ? 'Saving...' : 'Save Key'}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="glass rounded-2xl p-6">
+                            <h3 className="font-semibold mb-4">Where to Get API Keys</h3>
+                            <div className="space-y-3 text-sm">
+                                <p><span className="text-slate-400">OpenAI:</span> <a href="https://platform.openai.com/api-keys" target="_blank" className="text-sky-400 hover:underline">platform.openai.com/api-keys</a></p>
+                                <p><span className="text-slate-400">Google AI:</span> <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-sky-400 hover:underline">aistudio.google.com/app/apikey</a></p>
+                                <p><span className="text-slate-400">Anthropic:</span> <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-sky-400 hover:underline">console.anthropic.com/settings/keys</a></p>
+                                <p><span className="text-slate-400">Mistral:</span> <a href="https://console.mistral.ai/api-keys" target="_blank" className="text-sky-400 hover:underline">console.mistral.ai/api-keys</a></p>
+                                <p><span className="text-slate-400">Perplexity:</span> <a href="https://www.perplexity.ai/settings/api" target="_blank" className="text-sky-400 hover:underline">perplexity.ai/settings/api</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Brands Management Page
+        const BrandsPage = ({ onBack, brands, onUpdate }) => {
+            const [selectedBrand, setSelectedBrand] = useState(null);
+            const [brandDetails, setBrandDetails] = useState(null);
+            const [newCompetitor, setNewCompetitor] = useState('');
+            const [saving, setSaving] = useState(false);
+            const [editingBrand, setEditingBrand] = useState(null);
+            const [editName, setEditName] = useState('');
+            const [editDomain, setEditDomain] = useState('');
+            const [editKeywords, setEditKeywords] = useState('');
+            
+            useEffect(() => {
+                if (brands.length > 0 && !selectedBrand) {
+                    setSelectedBrand(brands[0].id);
+                }
+            }, [brands]);
+            
+            useEffect(() => {
+                if (selectedBrand) {
+                    loadBrandDetails(selectedBrand);
+                }
+            }, [selectedBrand]);
+            
+            const loadBrandDetails = async (brandId) => {
+                try {
+                    const data = await api.get(`/brands/${brandId}`);
+                    setBrandDetails(data);
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+            
+            const startEditBrand = (brand) => {
+                setEditingBrand(brand.id);
+                setEditName(brand.name);
+                setEditDomain(brand.domain || '');
+                setEditKeywords(brand.keywords || '');
+            };
+            
+            const saveBrandEdit = async () => {
+                if (!editName.trim()) return;
+                setSaving(true);
+                try {
+                    await api.put(`/brands/${editingBrand}`, { 
+                        name: editName.trim(), 
+                        domain: editDomain.trim(),
+                        keywords: editKeywords.trim()
+                    });
+                    setEditingBrand(null);
+                    await loadBrandDetails(selectedBrand);
+                    onUpdate();
+                } catch (err) {
+                    alert('Failed to update brand: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const addCompetitor = async () => {
+                if (!newCompetitor.trim() || !selectedBrand) return;
+                setSaving(true);
+                try {
+                    await api.post(`/brands/${selectedBrand}/competitors`, { name: newCompetitor.trim() });
+                    setNewCompetitor('');
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to add competitor: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const deleteCompetitor = async (competitorId) => {
+                if (!confirm('Remove this competitor?')) return;
+                try {
+                    await api.delete(`/competitors/${competitorId}`);
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to remove competitor: ' + err.message);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen p-8">
+                    <div className="max-w-4xl mx-auto">
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
+                            ← Back to Dashboard
+                        </button>
+                        
+                        <h2 className="text-2xl font-bold mb-6">Manage Brands & Competitors</h2>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Brand List */}
+                            <div className="glass rounded-2xl p-6">
+                                <h3 className="font-semibold mb-4">Brands</h3>
+                                <div className="space-y-2">
+                                    {brands.map(b => (
+                                        <div key={b.id} className={`rounded-lg transition-colors ${
+                                            selectedBrand === b.id 
+                                                ? 'bg-sky-500/20 border border-sky-500/50' 
+                                                : 'bg-slate-800/50 hover:bg-slate-700/50'
+                                        }`}>
+                                            {editingBrand === b.id ? (
+                                                <div className="p-3 space-y-2">
+                                                    <input
+                                                        type="text"
+                                                        value={editName}
+                                                        onChange={(e) => setEditName(e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm"
+                                                        placeholder="Brand name"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={editDomain}
+                                                        onChange={(e) => setEditDomain(e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm"
+                                                        placeholder="Domain (e.g. example.com)"
+                                                    />
+                                                    <textarea
+                                                        value={editKeywords}
+                                                        onChange={(e) => setEditKeywords(e.target.value)}
+                                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm"
+                                                        placeholder="Keywords (comma separated, e.g. lab freezers, cryogenic storage)"
+                                                        rows={2}
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <button onClick={saveBrandEdit} disabled={saving} className="flex-1 bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded text-sm">
+                                                            {saving ? '...' : 'Save'}
+                                                        </button>
+                                                        <button onClick={() => setEditingBrand(null)} className="flex-1 bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded text-sm">
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-between px-4 py-3">
+                                                    <button
+                                                        onClick={() => setSelectedBrand(b.id)}
+                                                        className="text-left flex-1"
+                                                    >
+                                                        {b.name}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => startEditBrand(b)}
+                                                        className="text-slate-400 hover:text-white p-1"
+                                                        title="Edit brand"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Competitors for Selected Brand */}
+                            <div className="lg:col-span-2 glass rounded-2xl p-6">
+                                <h3 className="font-semibold mb-4">
+                                    Competitors for {brandDetails?.name || 'Select a brand'}
+                                </h3>
+                                
+                                {brandDetails && (
+                                    <>
+                                        <div className="mb-6">
+                                            <div className="flex gap-3">
+                                                <input
+                                                    type="text"
+                                                    value={newCompetitor}
+                                                    onChange={e => setNewCompetitor(e.target.value)}
+                                                    onKeyPress={e => e.key === 'Enter' && addCompetitor()}
+                                                    placeholder="Enter competitor name (e.g., Thermo Fisher Scientific)"
+                                                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
+                                                />
+                                                <button
+                                                    onClick={addCompetitor}
+                                                    disabled={saving || !newCompetitor.trim()}
+                                                    className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50"
+                                                >
+                                                    {saving ? 'Adding...' : 'Add'}
+                                                </button>
+                                            </div>
+                                            <p className="text-slate-500 text-sm mt-2">
+                                                Add competitor brand names. They'll be tracked when you run analysis.
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                            {brandDetails.competitors?.length > 0 ? (
+                                                brandDetails.competitors.map(c => (
+                                                    <div key={c.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
+                                                        <div>
+                                                            <p className="font-medium">{c.name}</p>
+                                                            {c.domain && <p className="text-sm text-slate-400">{c.domain}</p>}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => deleteCompetitor(c.id)}
+                                                            className="text-red-400 hover:text-red-300 p-2"
+                                                            title="Remove competitor"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-slate-500 text-center py-8">
+                                                    No competitors added yet. Add competitor names above to track them in your analysis.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Sites Management Page (for WordPress plugin)
+        const SitesPage = ({ onBack }) => {
+            const [sites, setSites] = useState([]);
+            const [newDomain, setNewDomain] = useState('');
+            const [newApiKey, setNewApiKey] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [crawlerStats, setCrawlerStats] = useState(null);
+            
+            useEffect(() => {
+                loadSites();
+                loadCrawlerStats();
+            }, []);
+            
+            const loadSites = async () => {
+                try {
+                    const data = await api.get('/sites');
+                    setSites(data);
+                } catch (err) {}
+            };
+            
+            const loadCrawlerStats = async () => {
+                try {
+                    const data = await api.get('/crawler-stats?days=30');
+                    setCrawlerStats(data);
+                } catch (err) {}
+            };
+            
+            const registerSite = async () => {
+                if (!newDomain.trim()) return;
+                setLoading(true);
+                try {
+                    const data = await api.post('/sites/register', { domain: newDomain.trim() });
+                    setNewApiKey(data);
+                    setNewDomain('');
+                    await loadSites();
+                } catch (err) {
+                    alert('Failed to register site: ' + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const deleteSite = async (siteId) => {
+                if (!confirm('Delete this site? This will remove all crawler data for this site.')) return;
+                try {
+                    await api.delete(`/sites/${siteId}`);
+                    await loadSites();
+                    await loadCrawlerStats();
+                } catch (err) {
+                    alert('Failed to delete site: ' + err.message);
+                }
+            };
+            
+            return (
+                <div className="min-h-screen p-8">
+                    <div className="max-w-4xl mx-auto">
+                        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6">
+                            ← Back to Dashboard
+                        </button>
+                        
+                        <h2 className="text-2xl font-bold mb-2">WordPress Sites</h2>
+                        <p className="text-slate-400 mb-6">Connect your WordPress sites to track AI crawler activity.</p>
+                        
+                        {/* Register New Site */}
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-4">Register a Site</h3>
+                            <div className="flex gap-3">
+                                <input
+                                    type="text"
+                                    value={newDomain}
+                                    onChange={e => setNewDomain(e.target.value)}
+                                    onKeyPress={e => e.key === 'Enter' && registerSite()}
+                                    placeholder="americanbiotechsupply.com"
+                                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
+                                />
+                                <button
+                                    onClick={registerSite}
+                                    disabled={loading || !newDomain.trim()}
+                                    className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50"
+                                >
+                                    {loading ? 'Registering...' : 'Get API Key'}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* Show new API key */}
+                        {newApiKey && (
+                            <div className="glass rounded-2xl p-6 mb-6 border-2 border-emerald-500/50">
+                                <h3 className="font-semibold text-emerald-400 mb-4">✅ Site Registered!</h3>
+                                <p className="text-slate-300 mb-4">Copy these settings to your WordPress plugin:</p>
+                                
+                                <div className="bg-slate-900 rounded-lg p-4 space-y-3">
+                                    <div>
+                                        <label className="text-slate-400 text-sm">Railway Server URL:</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                readOnly 
+                                                value={newApiKey.endpoint.replace('/api/webhook/crawler', '')} 
+                                                className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
+                                            />
+                                            <button 
+                                                onClick={() => navigator.clipboard.writeText(newApiKey.endpoint.replace('/api/webhook/crawler', ''))}
+                                                className="px-3 py-2 bg-slate-700 rounded hover:bg-slate-600 text-sm"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="text-slate-400 text-sm">API Key:</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                readOnly 
+                                                value={newApiKey.apiKey} 
+                                                className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm font-mono"
+                                            />
+                                            <button 
+                                                onClick={() => navigator.clipboard.writeText(newApiKey.apiKey)}
+                                                className="px-3 py-2 bg-slate-700 rounded hover:bg-slate-600 text-sm"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button 
+                                    onClick={() => setNewApiKey(null)} 
+                                    className="mt-4 text-slate-400 hover:text-white text-sm"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
+                        
+                        {/* Registered Sites */}
+                        <div className="glass rounded-2xl p-6 mb-6">
+                            <h3 className="font-semibold mb-4">Registered Sites</h3>
+                            {sites.length > 0 ? (
+                                <div className="space-y-2">
+                                    {sites.map(s => (
+                                        <div key={s.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
+                                            <div>
+                                                <p className="font-medium">{s.domain}</p>
+                                                <p className="text-sm text-slate-400">Registered {new Date(s.created_at).toLocaleDateString()}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-emerald-400 text-sm">Connected</span>
+                                                <button 
+                                                    onClick={() => deleteSite(s.id)}
+                                                    className="text-red-400 hover:text-red-300 p-1"
+                                                    title="Delete site"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-slate-500 text-center py-4">No sites registered yet.</p>
+                            )}
+                        </div>
+                        
+                        {/* Crawler Stats */}
+                        {crawlerStats && crawlerStats.totalCrawlerVisits > 0 && (
+                            <div className="glass rounded-2xl p-6">
+                                <h3 className="font-semibold mb-4">📊 AI Crawler Activity (Last 30 Days)</h3>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="bg-slate-800/50 rounded-lg p-4 text-center">
+                                        <div className="text-3xl font-bold text-sky-400">{crawlerStats.totalCrawlerVisits.toLocaleString()}</div>
+                                        <div className="text-slate-400 text-sm">Bot Visits</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-lg p-4 text-center">
+                                        <div className="text-3xl font-bold text-emerald-400">{crawlerStats.totalReferralVisits.toLocaleString()}</div>
+                                        <div className="text-slate-400 text-sm">Human Referrals</div>
+                                    </div>
+                                </div>
+                                
+                                {/* By Site */}
+                                {crawlerStats.bySite && crawlerStats.bySite.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-2">By Site</h4>
+                                        <div className="space-y-2">
+                                            {crawlerStats.bySite.map((s, i) => (
+                                                <div key={i} className="flex justify-between items-center p-3 bg-slate-800/30 rounded-lg">
+                                                    <div>
+                                                        <span className="font-medium">{s.site_domain}</span>
+                                                        <span className="text-slate-500 text-xs ml-2">({s.companies})</span>
+                                                    </div>
+                                                    <span className="font-bold text-sky-400">{s.visits}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {crawlerStats.byCompany && crawlerStats.byCompany.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-medium text-slate-400 mb-2">By Company</h4>
+                                        <div className="space-y-2">
+                                            {crawlerStats.byCompany.map((c, i) => (
+                                                <div key={i} className="flex justify-between items-center p-2 bg-slate-800/30 rounded">
+                                                    <span className="flex items-center gap-2">
+                                                        <span>{c.company === 'OpenAI' ? '🤖' : c.company === 'Anthropic' ? '🧠' : c.company === 'Google' ? '✨' : c.company === 'Amazon' ? '📦' : '🌐'}</span>
+                                                        {c.company}
+                                                    </span>
+                                                    <span className="font-medium">{c.visits.toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* Setup Instructions */}
+                        <div className="glass rounded-2xl p-6 mt-6">
+                            <h3 className="font-semibold mb-4">📖 Setup Instructions</h3>
+                            <ol className="list-decimal list-inside space-y-3 text-slate-300">
+                                <li>Install the <strong>AI Crawler Tracker</strong> plugin on your WordPress site</li>
+                                <li>Register your domain above to get an API key</li>
+                                <li>In WordPress, go to <strong>AI Crawlers → Settings</strong></li>
+                                <li>Enable "Sync to AI Brand Insights Pro"</li>
+                                <li>Paste the Railway URL and API Key</li>
+                                <li>Click Save - data will sync daily (use Sync Now for immediate)</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                if (api.token) {
+                    api.get('/auth/me').then(setUser).catch(() => {
+                        api.token = null;
+                        localStorage.removeItem('token');
+                    }).finally(() => setLoading(false));
+                } else {
+                    setLoading(false);
+                }
+            }, []);
+            
+            const handleLogout = () => {
+                api.token = null;
+                localStorage.removeItem('token');
+                setUser(null);
+            };
+            
+            if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-xl">Loading...</div></div>;
+            if (!user) return <LoginPage onLogin={setUser} />;
+            return <Dashboard user={user} onLogout={handleLogout} />;
+        };
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
