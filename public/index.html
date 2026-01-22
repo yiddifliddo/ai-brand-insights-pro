@@ -209,8 +209,7 @@
             const [historyData, setHistoryData] = useState(null);
             const [expandedResponse, setExpandedResponse] = useState(null);
             const [crawlerStats, setCrawlerStats] = useState(null);
-            const [trendsData, setTrendsData] = useState(null);
-            const [trendsError, setTrendsError] = useState(null);
+            const [trendsData, setTrendsData] = useState({});
             const [loadingTrends, setLoadingTrends] = useState(false);
             const [menuOpen, setMenuOpen] = useState(false);
             
@@ -225,21 +224,17 @@
                     // Load crawler stats for this brand's domain
                     const brand = brands.find(b => b.id == selectedBrand);
                     loadCrawlerStats(brand?.domain);
-                    loadTrends(selectedBrand);
+                    // Trends loaded manually via button
                 }
-            }, [selectedBrand, activePlatform, brands, apiStatus.searchapi]);
+            }, [selectedBrand, activePlatform, brands]);
             
             const loadTrends = async (brandId) => {
                 setLoadingTrends(true);
-                setTrendsError(null);
                 try {
                     const data = await api.get(`/brands/${brandId}/trends`);
-                    console.log('Trends data received:', data);
-                    setTrendsData(data);
+                    setTrendsData(prev => ({ ...prev, [brandId]: data }));
                 } catch (err) {
                     console.error('Failed to load trends:', err);
-                    setTrendsData(null);
-                    setTrendsError(err.message);
                 } finally {
                     setLoadingTrends(false);
                 }
@@ -323,6 +318,7 @@
             
             // Get data from analysis
             const brand = analysisData?.brand || currentBrand;
+            const currentTrends = trendsData[selectedBrand] || null;
             const queries = analysisData?.results || [];
             const dbCompetitors = analysisData?.competitors || [];
             const dbCitations = analysisData?.citations || [];
@@ -407,16 +403,16 @@
                 <div className="min-h-screen">
                     {/* Header */}
                     <header className="glass-dark sticky top-0 z-50 px-6 py-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-shrink-0 mr-4">
+                        <div className="max-w-7xl mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-3">
                                 <img 
                                     src="https://americanbiotechsupply.com/wp-content/uploads/2026/01/SXI_BIG-416c9b33.png" 
                                     alt="Standex" 
-                                    className="h-6 w-auto brightness-0 invert"
+                                    className="h-8 w-auto brightness-0 invert"
                                 />
                                 <div>
-                                    <h1 className="text-lg font-bold whitespace-nowrap">AI Brand Insights</h1>
-                                    <p className="text-slate-400 text-xs whitespace-nowrap">Standex Scientific</p>
+                                    <h1 className="text-lg font-bold">AI Brand Insights</h1>
+                                    <p className="text-slate-400 text-xs">Standex Scientific</p>
                                 </div>
                             </div>
                             
@@ -671,7 +667,7 @@
                                                 {c.isYou && <span className="you-badge px-2 py-0.5 rounded text-xs font-medium">You</span>}
                                             </div>
                                             <div className="col-span-3 text-right text-slate-400">
-                                                {c.mentions} / {metrics.totalQueries || 8}
+                                                {c.mentions}
                                             </div>
                                         </div>
                                     ))}
@@ -858,7 +854,8 @@
                                             {competitorList.map((c, i) => {
                                                 const totalMentionsAll = competitorList.reduce((sum, comp) => sum + comp.mentions, 0);
                                                 const shareOfVoice = totalMentionsAll > 0 ? Math.round((c.mentions / totalMentionsAll) * 100) : 0;
-                                                const visScore = totalQueries > 0 ? Math.round((c.mentions / totalQueries) * 100) : 0;
+                                                const topMentions = competitorList.length > 0 ? competitorList[0].mentions : 1;
+                                                const visScore = topMentions > 0 ? Math.round((c.mentions / topMentions) * 100) : 0;
                                                 
                                                 return (
                                                     <tr key={i} className={`border-b border-slate-800 ${c.isYou ? 'bg-sky-500/10' : ''}`}>
@@ -971,18 +968,22 @@
                         )}
                         
                         {/* Google Trends Panel */}
-                        {trendsData && trendsData.interest_over_time && trendsData.interest_over_time.length > 0 && (
+                        {currentTrends && currentTrends.interest_over_time && currentTrends.interest_over_time.length > 0 && (
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="flex justify-between items-center mb-4">
                                     <div>
                                         <h3 className="text-lg font-semibold">📈 Google Trends</h3>
-                                        <p className="text-slate-400 text-sm">Search interest for {trendsData.keywords?.join(', ')}</p>
+                                        <p className="text-slate-400 text-sm">Search interest for {currentTrends.keywords?.join(', ')}</p>
+                                        {currentTrends.fetched_at && (
+                                            <p className="text-slate-500 text-xs mt-1">Last Trend Query: {new Date(currentTrends.fetched_at).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}</p>
+                                        )}
                                     </div>
                                     <button 
                                         onClick={() => loadTrends(selectedBrand)}
-                                        className="text-sky-400 hover:text-sky-300 text-sm"
+                                        disabled={loadingTrends}
+                                        className="btn-primary px-4 py-2 rounded-lg text-sm disabled:opacity-50"
                                     >
-                                        🔄 Refresh
+                                        {loadingTrends ? '⏳ Loading...' : '📈 Get Trends'}
                                     </button>
                                 </div>
                                 
@@ -990,8 +991,8 @@
                                 <div className="bg-slate-800/30 rounded-xl p-4 mb-4">
                                     <h4 className="text-sm font-medium text-slate-400 mb-3">Interest Over Time</h4>
                                     <div className="h-48 flex items-end gap-1">
-                                        {trendsData.interest_over_time.slice(-30).map((point, i) => {
-                                            const maxValue = Math.max(...trendsData.interest_over_time.slice(-30).map(p => 
+                                        {currentTrends.interest_over_time.slice(-30).map((point, i) => {
+                                            const maxValue = Math.max(...currentTrends.interest_over_time.slice(-30).map(p => 
                                                 p.values ? Math.max(...p.values.map(v => v.value || 0)) : 0
                                             ));
                                             const value = point.values?.[0]?.value || 0;
@@ -1008,29 +1009,29 @@
                                         })}
                                     </div>
                                     <div className="flex justify-between text-xs text-slate-500 mt-2">
-                                        <span>{trendsData.interest_over_time[0]?.date}</span>
-                                        <span>{trendsData.interest_over_time[trendsData.interest_over_time.length - 1]?.date}</span>
+                                        <span>{currentTrends.interest_over_time[0]?.date}</span>
+                                        <span>{currentTrends.interest_over_time[currentTrends.interest_over_time.length - 1]?.date}</span>
                                     </div>
                                 </div>
                                 
                                 {/* Keyword Comparison */}
-                                {trendsData.keywords && trendsData.keywords.length > 1 && (
+                                {currentTrends.keywords && currentTrends.keywords.length > 1 && (
                                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {trendsData.interest_over_time.slice(-1)[0]?.values?.map((v, i) => (
+                                        {currentTrends.interest_over_time.slice(-1)[0]?.values?.map((v, i) => (
                                             <div key={i} className="bg-slate-800/30 rounded-lg p-3 text-center">
                                                 <div className="text-2xl font-bold text-emerald-400">{v.value || 0}</div>
-                                                <div className="text-xs text-slate-400 truncate">{v.query || trendsData.keywords[i]}</div>
+                                                <div className="text-xs text-slate-400 truncate">{v.query || currentTrends.keywords[i]}</div>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                                 
                                 {/* Related Queries */}
-                                {trendsData.related_queries && trendsData.related_queries.length > 0 && (
+                                {currentTrends.related_queries && currentTrends.related_queries.length > 0 && (
                                     <div className="mt-4 pt-4 border-t border-slate-700">
                                         <h4 className="text-sm font-medium text-slate-400 mb-3">Related Queries</h4>
                                         <div className="flex flex-wrap gap-2">
-                                            {trendsData.related_queries.slice(0, 10).map((q, i) => (
+                                            {currentTrends.related_queries.slice(0, 10).map((q, i) => (
                                                 <span key={i} className="px-3 py-1 bg-slate-800/50 rounded-full text-sm text-slate-300">
                                                     {q.query}
                                                 </span>
@@ -1041,8 +1042,8 @@
                             </div>
                         )}
                         
-                        {/* No trends data - prompt to set up */}
-                        {!trendsData && !loadingTrends && !apiStatus.searchapi && (
+                        {/* No API key - prompt to set up */}
+                        {!currentTrends && !loadingTrends && !apiStatus.searchapi && (
                             <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
                                 <div className="text-center py-4">
                                     <span className="text-4xl mb-4 block">📈</span>
@@ -1055,37 +1056,29 @@
                             </div>
                         )}
                         
+                        {/* API key exists but no data yet - show Get Trends button */}
+                        {!currentTrends && !loadingTrends && apiStatus.searchapi && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="text-center py-4">
+                                    <span className="text-4xl mb-4 block">📈</span>
+                                    <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
+                                    <p className="text-slate-400 mb-4">Click below to load Google Trends data for this brand.</p>
+                                    <button 
+                                        onClick={() => loadTrends(selectedBrand)} 
+                                        disabled={loadingTrends}
+                                        className="btn-primary px-6 py-2 rounded-lg disabled:opacity-50"
+                                    >
+                                        📈 Get Trends
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
                         {loadingTrends && (
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="text-center py-8">
                                     <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                                     <p className="text-slate-400">Loading Google Trends data...</p>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {/* Key configured but no trends data or error - show error or offer refresh */}
-                        {!loadingTrends && apiStatus.searchapi && (!trendsData || !trendsData.interest_over_time || trendsData.interest_over_time.length === 0) && (
-                            <div className="glass rounded-2xl p-6 mb-6">
-                                <div className="text-center py-4">
-                                    <span className="text-4xl mb-4 block">📈</span>
-                                    <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
-                                    {trendsError ? (
-                                        <p className="text-red-400 mb-4">Error: {trendsError}</p>
-                                    ) : trendsData ? (
-                                        <div className="mb-4">
-                                            <p className="text-amber-400 mb-2">No timeline data returned.</p>
-                                            <p className="text-slate-500 text-sm">Keywords: {trendsData.keywords?.join(', ')}</p>
-                                            {trendsData.raw_response_keys && (
-                                                <p className="text-slate-500 text-xs mt-1">API returned: {trendsData.raw_response_keys.join(', ')}</p>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <p className="text-slate-400 mb-4">Click below to load Google Trends data.</p>
-                                    )}
-                                    <button onClick={() => loadTrends(selectedBrand)} className="btn-primary px-6 py-2 rounded-lg">
-                                        🔄 Load Trends Data
-                                    </button>
                                 </div>
                             </div>
                         )}
@@ -1297,7 +1290,7 @@
                 try {
                     const data = await api.get('/admin/api-keys');
                     const searchapi = data.find(k => k.platform === 'searchapi');
-                    // Don't load masked key - just leave empty, apiStatus shows if configured
+                    // API only returns masked key, leave input empty - apiStatus shows if configured
                 } catch (err) {}
             };
             
@@ -1330,10 +1323,7 @@
             const saveKeywords = async (brandId) => {
                 setSaving(true);
                 try {
-                    const brand = brands.find(b => b.id == brandId);
-                    if (!brand) {
-                        throw new Error('Brand not found');
-                    }
+                    const brand = brands.find(b => b.id === brandId);
                     await api.put(`/brands/${brandId}`, { 
                         name: brand.name, 
                         domain: brand.domain,
