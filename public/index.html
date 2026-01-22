@@ -58,11 +58,11 @@
         const glossary = {
             visibility: "How often your brand appears when AI platforms answer relevant questions. A higher score means AI is more likely to mention your brand.",
             sentiment: "Whether AI talks about your brand positively or negatively. Positive sentiment means AI recommends or praises your brand.",
-            mentions: "The number of times your brand name appears in AI responses. 'Latest run' shows the most recent analysis only.",
+            mentions: "The number of times your brand name appears in AI responses across all queries tested.",
             citations: "Links and sources that AI platforms reference when mentioning your brand. Shows where AI gets its information about you.",
             queries: "Questions asked to AI platforms to test if your brand appears. Examples: 'Best laboratory freezers', 'What is American Biotech Supply?'",
-            competitors: "Rival brands in your market. 'All-time' data is aggregated across all analysis runs to show overall competitive positioning.",
-            ranking: "Your position compared to competitors based on total mentions across all analysis runs (all-time aggregated data)."
+            competitors: "Rival brands in your market. The app tracks how often competitors appear vs. your brand to show competitive positioning.",
+            ranking: "Your position compared to competitors based on how often each brand is mentioned by AI platforms."
         };
         
         // Info Tooltip Component
@@ -205,7 +205,8 @@
             const [historyData, setHistoryData] = useState(null);
             const [expandedResponse, setExpandedResponse] = useState(null);
             const [crawlerStats, setCrawlerStats] = useState(null);
-            const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+            const [trendsData, setTrendsData] = useState(null);
+            const [loadingTrends, setLoadingTrends] = useState(false);
             
             useEffect(() => {
                 loadData();
@@ -218,8 +219,22 @@
                     // Load crawler stats for this brand's domain
                     const brand = brands.find(b => b.id == selectedBrand);
                     loadCrawlerStats(brand?.domain);
+                    loadTrends(selectedBrand);
                 }
             }, [selectedBrand, activePlatform, brands]);
+            
+            const loadTrends = async (brandId) => {
+                setLoadingTrends(true);
+                try {
+                    const data = await api.get(`/brands/${brandId}/trends`);
+                    setTrendsData(data);
+                } catch (err) {
+                    console.error('Failed to load trends:', err);
+                    setTrendsData(null);
+                } finally {
+                    setLoadingTrends(false);
+                }
+            };
             
             const loadCrawlerStats = async (brandDomain) => {
                 try {
@@ -299,18 +314,7 @@
             
             // Get data from analysis
             const brand = analysisData?.brand || currentBrand;
-            const rawQueries = analysisData?.results || [];
-            
-            // Deduplicate queries by query_text, keeping only the latest result for each
-            const queryMap = new Map();
-            rawQueries.forEach(q => {
-                const existing = queryMap.get(q.query_text);
-                if (!existing || new Date(q.created_at || 0) > new Date(existing.created_at || 0)) {
-                    queryMap.set(q.query_text, q);
-                }
-            });
-            const queries = Array.from(queryMap.values());
-            
+            const queries = analysisData?.results || [];
             const dbCompetitors = analysisData?.competitors || [];
             const dbCitations = analysisData?.citations || [];
             const competitorMentionCounts = analysisData?.competitorMentions || {};
@@ -443,6 +447,7 @@
                                         loadHistory(selectedBrand);
                                         const brand = brands.find(b => b.id == selectedBrand);
                                         loadCrawlerStats(brand?.domain);
+                                        loadTrends(selectedBrand);
                                     }}
                                     className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 hover:bg-slate-600 transition-colors"
                                     title="Refresh Data"
@@ -472,61 +477,30 @@
                                     )}
                                 </button>
                                 
-                                {/* Settings Dropdown Menu */}
-                                <div className="relative">
-                                    <button 
-                                        onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                                        className="p-2 text-slate-400 hover:text-white transition-colors"
-                                        title="Settings Menu"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                        </svg>
-                                    </button>
-                                    
-                                    {showSettingsMenu && (
-                                        <div className="absolute right-0 mt-2 w-56 glass-dark rounded-xl shadow-xl z-50 py-2">
-                                            <button 
-                                                onClick={() => { setPage('api-keys'); setShowSettingsMenu(false); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700/50 transition-colors"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                                API Keys
-                                            </button>
-                                            <button 
-                                                onClick={() => { setPage('brands'); setShowSettingsMenu(false); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700/50 transition-colors"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                </svg>
-                                                Brands, Competitors & Queries
-                                            </button>
-                                            <button 
-                                                onClick={() => { setPage('sites'); setShowSettingsMenu(false); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-slate-300 hover:bg-slate-700/50 transition-colors"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                                                </svg>
-                                                WordPress Sites
-                                            </button>
-                                            <div className="border-t border-slate-700 my-2"></div>
-                                            <button 
-                                                onClick={() => { onLogout(); setShowSettingsMenu(false); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-slate-700/50 transition-colors"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                                </svg>
-                                                Sign Out
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                {/* Settings/API Keys */}
+                                <button onClick={() => setPage('api-keys')} className="p-2 text-slate-400 hover:text-white transition-colors" title="API Keys">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </button>
+                                
+                                {/* Brands/Competitors Management */}
+                                <button onClick={() => setPage('brands')} className="p-2 text-slate-400 hover:text-white transition-colors" title="Manage Brands & Competitors">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                </button>
+                                
+                                {/* WordPress Sites */}
+                                <button onClick={() => setPage('sites')} className="p-2 text-slate-400 hover:text-white transition-colors" title="WordPress Sites">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                                    </svg>
+                                </button>
+                                
+                                {/* Logout */}
+                                <button onClick={onLogout} className="text-slate-400 hover:text-white text-sm">Sign out</button>
                             </div>
                         </div>
                     </header>
@@ -538,21 +512,16 @@
                             {/* Radar Chart Card */}
                             <div className="lg:col-span-5 glass rounded-2xl p-6">
                                 <div className="flex items-start justify-between mb-4">
-                                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                                        AI Visibility Index <InfoTooltip term="visibility" />
-                                        <span className="text-xs bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">Latest</span>
-                                    </h3>
+                                    <h3 className="text-lg font-semibold">AI Visibility Index <InfoTooltip term="visibility" /></h3>
                                     <div className="text-right">
-                                        <div className="text-4xl font-bold text-sky-400">
-                                            {queries.length > 0 ? Math.round((queries.filter(q => q.mentioned).length / queries.length) * 100) : 0}
-                                        </div>
+                                        <div className="text-4xl font-bold text-sky-400">{metrics.visibility}</div>
                                         <div className="text-slate-400 text-sm">/ 100</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-center">
                                     <div style={{width: '280px', height: '280px'}}>
                                         <RadarChart data={{
-                                            mentions: queries.length > 0 ? Math.round((queries.filter(q => q.mentioned).length / queries.length) * 100) : 0,
+                                            mentions: Math.min(100, (metrics.mentions / Math.max(1, metrics.totalQueries)) * 100),
                                             ranking: competitorList.length > 1 ? Math.round(100 - ((metrics.ranking - 1) / (competitorList.length - 1)) * 100) : 100,
                                             citations: Math.min(100, metrics.citations * 5),
                                             sentiment: metrics.sentiment
@@ -564,24 +533,18 @@
                             {/* Stats Cards */}
                             <div className="lg:col-span-7 grid grid-cols-2 gap-4">
                                 <div className="stat-card rounded-xl p-5">
-                                    <p className="text-slate-400 text-sm mb-1 flex items-center gap-2">
-                                        Mentions <InfoTooltip term="mentions" />
-                                        <span className="text-xs bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">Latest</span>
-                                    </p>
+                                    <p className="text-slate-400 text-sm mb-1">Mentions <InfoTooltip term="mentions" /></p>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-bold">{queries.filter(q => q.mentioned).length}</span>
-                                        {queries.filter(q => q.mentioned).length > 0 && <span className="text-emerald-400 text-sm">↑ 12%</span>}
+                                        <span className="text-3xl font-bold">{metrics.mentions}</span>
+                                        {metrics.mentions > 0 && <span className="text-emerald-400 text-sm">↑ 12%</span>}
                                     </div>
-                                    <p className="text-slate-500 text-xs mt-1">{queries.length} queries total</p>
+                                    <p className="text-slate-500 text-xs mt-1">{metrics.totalQueries} queries total</p>
                                 </div>
                                 
                                 <div className="stat-card rounded-xl p-5">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-slate-400 text-sm mb-1 flex items-center gap-2">
-                                                Competitor Ranking <InfoTooltip term="ranking" />
-                                                <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">All-time</span>
-                                            </p>
+                                            <p className="text-slate-400 text-sm mb-1">Competitor Ranking <InfoTooltip term="ranking" /></p>
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-3xl font-bold">#{competitorList.findIndex(c => c.isYou) + 1 || '-'}</span>
                                                 {competitorList.findIndex(c => c.isYou) === 0 && <span className="text-emerald-400 text-sm">↑ 5%</span>}
@@ -617,11 +580,8 @@
                             {/* Mentions */}
                             <div className="glass rounded-2xl p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                                        Mentions <InfoTooltip term="mentions" />
-                                        <span className="text-xs bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">Latest run</span>
-                                    </h3>
-                                    <span className="text-slate-400 text-sm">{queries.filter(q => q.mentioned).length} / {queries.length} queries</span>
+                                    <h3 className="text-lg font-semibold">Mentions <InfoTooltip term="mentions" /></h3>
+                                    <span className="text-slate-400 text-sm">{metrics.mentions} / {metrics.totalQueries} queries</span>
                                 </div>
                                 <div className="space-y-3 max-h-80 overflow-y-auto">
                                     {queries.map((q, i) => (
@@ -646,11 +606,8 @@
                             {/* Competitor Ranking */}
                             <div className="glass rounded-2xl p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                                        Competitor Ranking <InfoTooltip term="competitors" />
-                                        <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">All-time</span>
-                                    </h3>
-                                    <span className="text-slate-400 text-sm">Total mentions across all runs</span>
+                                    <h3 className="text-lg font-semibold">Competitor Ranking <InfoTooltip term="competitors" /></h3>
+                                    <span className="text-slate-400 text-sm">Brands with most mentions</span>
                                 </div>
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-12 text-xs text-slate-400 px-3 pb-2 border-b border-slate-700">
@@ -671,8 +628,8 @@
                                                 <span className={c.isYou ? 'text-cyan-400 font-medium' : ''}>{c.name}</span>
                                                 {c.isYou && <span className="you-badge px-2 py-0.5 rounded text-xs font-medium">You</span>}
                                             </div>
-                                            <div className="col-span-3 text-right font-semibold">
-                                                {c.mentions}
+                                            <div className="col-span-3 text-right text-slate-400">
+                                                {c.mentions} / {metrics.totalQueries || 8}
                                             </div>
                                         </div>
                                     ))}
@@ -840,11 +797,8 @@
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="flex justify-between items-center mb-4">
                                     <div>
-                                        <h3 className="text-lg font-semibold flex items-center gap-2">
-                                            📊 Competitor Benchmark
-                                            <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">All-time</span>
-                                        </h3>
-                                        <p className="text-slate-400 text-sm">Aggregated data across all analysis runs</p>
+                                        <h3 className="text-lg font-semibold">📊 Competitor Benchmark</h3>
+                                        <p className="text-slate-400 text-sm">See exactly where you stand against competitors</p>
                                     </div>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -861,10 +815,8 @@
                                         <tbody>
                                             {competitorList.map((c, i) => {
                                                 const totalMentionsAll = competitorList.reduce((sum, comp) => sum + comp.mentions, 0);
-                                                const maxMentions = Math.max(...competitorList.map(comp => comp.mentions), 1);
                                                 const shareOfVoice = totalMentionsAll > 0 ? Math.round((c.mentions / totalMentionsAll) * 100) : 0;
-                                                // Visibility score: relative to top performer (top = 100)
-                                                const visScore = Math.round((c.mentions / maxMentions) * 100);
+                                                const visScore = totalQueries > 0 ? Math.round((c.mentions / totalQueries) * 100) : 0;
                                                 
                                                 return (
                                                     <tr key={i} className={`border-b border-slate-800 ${c.isYou ? 'bg-sky-500/10' : ''}`}>
@@ -972,6 +924,100 @@
                                             Your brand is not being mentioned for "{visibilityGaps[0] || 'cryogenic storage solutions'}" and "{visibilityGaps[1] || 'affordable lab freezers'}" queries. Consider creating content targeting these terms to improve AI visibility.
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Google Trends Panel */}
+                        {trendsData && trendsData.interest_over_time && trendsData.interest_over_time.length > 0 && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">📈 Google Trends</h3>
+                                        <p className="text-slate-400 text-sm">Search interest for {trendsData.keywords?.join(', ')}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => loadTrends(selectedBrand)}
+                                        className="text-sky-400 hover:text-sky-300 text-sm"
+                                    >
+                                        🔄 Refresh
+                                    </button>
+                                </div>
+                                
+                                {/* Interest Over Time Chart */}
+                                <div className="bg-slate-800/30 rounded-xl p-4 mb-4">
+                                    <h4 className="text-sm font-medium text-slate-400 mb-3">Interest Over Time</h4>
+                                    <div className="h-48 flex items-end gap-1">
+                                        {trendsData.interest_over_time.slice(-30).map((point, i) => {
+                                            const maxValue = Math.max(...trendsData.interest_over_time.slice(-30).map(p => 
+                                                p.values ? Math.max(...p.values.map(v => v.value || 0)) : 0
+                                            ));
+                                            const value = point.values?.[0]?.value || 0;
+                                            const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                                            return (
+                                                <div key={i} className="flex-1 flex flex-col items-center group">
+                                                    <div 
+                                                        className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t transition-all hover:from-emerald-400 hover:to-emerald-300"
+                                                        style={{height: `${Math.max(height, 2)}%`}}
+                                                        title={`${point.date}: ${value}`}
+                                                    ></div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="flex justify-between text-xs text-slate-500 mt-2">
+                                        <span>{trendsData.interest_over_time[0]?.date}</span>
+                                        <span>{trendsData.interest_over_time[trendsData.interest_over_time.length - 1]?.date}</span>
+                                    </div>
+                                </div>
+                                
+                                {/* Keyword Comparison */}
+                                {trendsData.keywords && trendsData.keywords.length > 1 && (
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {trendsData.interest_over_time.slice(-1)[0]?.values?.map((v, i) => (
+                                            <div key={i} className="bg-slate-800/30 rounded-lg p-3 text-center">
+                                                <div className="text-2xl font-bold text-emerald-400">{v.value || 0}</div>
+                                                <div className="text-xs text-slate-400 truncate">{v.query || trendsData.keywords[i]}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {/* Related Queries */}
+                                {trendsData.related_queries && trendsData.related_queries.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-slate-700">
+                                        <h4 className="text-sm font-medium text-slate-400 mb-3">Related Queries</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {trendsData.related_queries.slice(0, 10).map((q, i) => (
+                                                <span key={i} className="px-3 py-1 bg-slate-800/50 rounded-full text-sm text-slate-300">
+                                                    {q.query}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* No trends data - prompt to set up */}
+                        {!trendsData && !loadingTrends && apiStatus.searchapi !== false && (
+                            <div className="glass rounded-2xl p-6 mb-6 border border-dashed border-slate-600">
+                                <div className="text-center py-4">
+                                    <span className="text-4xl mb-4 block">📈</span>
+                                    <h3 className="text-lg font-semibold mb-2">Google Trends Data</h3>
+                                    <p className="text-slate-400 mb-4">Add a SearchAPI key to see Google Trends data for your products.</p>
+                                    <button onClick={() => setPage('api-keys')} className="btn-primary px-6 py-2 rounded-lg">
+                                        Add SearchAPI Key →
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {loadingTrends && (
+                            <div className="glass rounded-2xl p-6 mb-6">
+                                <div className="text-center py-8">
+                                    <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                                    <p className="text-slate-400">Loading Google Trends data...</p>
                                 </div>
                             </div>
                         )}
@@ -1201,11 +1247,12 @@
             };
             
             const platforms = [
-                { id: 'openai', name: 'OpenAI (ChatGPT)', icon: '🤖' },
-                { id: 'google', name: 'Google (Gemini)', icon: '✨' },
-                { id: 'anthropic', name: 'Anthropic (Claude)', icon: '🧠' },
-                { id: 'mistral', name: 'Mistral AI', icon: '🌀' },
-                { id: 'perplexity', name: 'Perplexity', icon: '🔍' }
+                { id: 'openai', name: 'OpenAI (ChatGPT)', icon: '🤖', link: 'https://platform.openai.com/api-keys' },
+                { id: 'google', name: 'Google (Gemini)', icon: '✨', link: 'https://aistudio.google.com/app/apikey' },
+                { id: 'anthropic', name: 'Anthropic (Claude)', icon: '🧠', link: 'https://console.anthropic.com/settings/keys' },
+                { id: 'mistral', name: 'Mistral AI', icon: '🌀', link: 'https://console.mistral.ai/api-keys' },
+                { id: 'perplexity', name: 'Perplexity', icon: '🔍', link: 'https://www.perplexity.ai/settings/api' },
+                { id: 'searchapi', name: 'SearchAPI (Google Trends)', icon: '📈', link: 'https://www.searchapi.io/dashboard' }
             ];
             
             return (
@@ -1285,8 +1332,6 @@
             const [selectedBrand, setSelectedBrand] = useState(null);
             const [brandDetails, setBrandDetails] = useState(null);
             const [newCompetitor, setNewCompetitor] = useState('');
-            const [newQuery, setNewQuery] = useState('');
-            const [newQueryCategory, setNewQueryCategory] = useState('general');
             const [saving, setSaving] = useState(false);
             const [editingBrand, setEditingBrand] = useState(null);
             const [editName, setEditName] = useState('');
@@ -1358,33 +1403,6 @@
                 }
             };
             
-            const addQuery = async () => {
-                if (!newQuery.trim() || !selectedBrand) return;
-                setSaving(true);
-                try {
-                    await api.post(`/brands/${selectedBrand}/queries`, { 
-                        query_text: newQuery.trim(),
-                        category: newQueryCategory 
-                    });
-                    setNewQuery('');
-                    await loadBrandDetails(selectedBrand);
-                } catch (err) {
-                    alert('Failed to add query: ' + err.message);
-                } finally {
-                    setSaving(false);
-                }
-            };
-            
-            const deleteQuery = async (queryId) => {
-                if (!confirm('Remove this query?')) return;
-                try {
-                    await api.delete(`/queries/${queryId}`);
-                    await loadBrandDetails(selectedBrand);
-                } catch (err) {
-                    alert('Failed to remove query: ' + err.message);
-                }
-            };
-            
             return (
                 <div className="min-h-screen p-8">
                     <div className="max-w-4xl mx-auto">
@@ -1392,7 +1410,7 @@
                             ← Back to Dashboard
                         </button>
                         
-                        <h2 className="text-2xl font-bold mb-6">Manage Brands, Competitors & Queries</h2>
+                        <h2 className="text-2xl font-bold mb-6">Manage Brands & Competitors</h2>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Brand List */}
@@ -1508,82 +1526,6 @@
                                                 </p>
                                             )}
                                         </div>
-                                        
-                                        {/* Queries Section */}
-                                        <div className="mt-8 pt-6 border-t border-slate-700">
-                                            <h3 className="font-semibold mb-4 flex items-center">
-                                                Queries for {brandDetails?.name}
-                                                <InfoTooltip term="queries" />
-                                            </h3>
-                                            
-                                            <div className="mb-4">
-                                                <div className="flex gap-3">
-                                                    <input
-                                                        type="text"
-                                                        value={newQuery}
-                                                        onChange={e => setNewQuery(e.target.value)}
-                                                        onKeyPress={e => e.key === 'Enter' && addQuery()}
-                                                        placeholder="Enter a query (e.g., Best ultra low temperature freezers)"
-                                                        className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
-                                                    />
-                                                    <select
-                                                        value={newQueryCategory}
-                                                        onChange={e => setNewQueryCategory(e.target.value)}
-                                                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-3 focus:outline-none focus:border-sky-500"
-                                                    >
-                                                        <option value="general">General</option>
-                                                        <option value="brand">Brand</option>
-                                                        <option value="product">Product</option>
-                                                        <option value="comparison">Comparison</option>
-                                                        <option value="use_case">Use Case</option>
-                                                    </select>
-                                                    <button
-                                                        onClick={addQuery}
-                                                        disabled={saving || !newQuery.trim()}
-                                                        className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50"
-                                                    >
-                                                        {saving ? 'Adding...' : 'Add'}
-                                                    </button>
-                                                </div>
-                                                <p className="text-slate-500 text-sm mt-2">
-                                                    Add custom queries to test how AI platforms respond. Example: "Ultra low temperature freezers for vaccine storage"
-                                                </p>
-                                            </div>
-                                            
-                                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                                {brandDetails.queries?.length > 0 ? (
-                                                    brandDetails.queries.map(q => (
-                                                        <div key={q.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-                                                            <div className="flex-1">
-                                                                <p className="text-sm">{q.query_text}</p>
-                                                                <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded ${
-                                                                    q.category === 'brand' ? 'bg-blue-500/20 text-blue-400' :
-                                                                    q.category === 'product' ? 'bg-green-500/20 text-green-400' :
-                                                                    q.category === 'comparison' ? 'bg-purple-500/20 text-purple-400' :
-                                                                    q.category === 'use_case' ? 'bg-orange-500/20 text-orange-400' :
-                                                                    'bg-slate-500/20 text-slate-400'
-                                                                }`}>
-                                                                    {q.category || 'general'}
-                                                                </span>
-                                                            </div>
-                                                            <button
-                                                                onClick={() => deleteQuery(q.id)}
-                                                                className="text-red-400 hover:text-red-300 p-2 ml-2"
-                                                                title="Remove query"
-                                                            >
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-slate-500 text-center py-4">
-                                                        No queries added yet. Add queries to test AI visibility.
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
                                     </>
                                 )}
                             </div>
@@ -1600,7 +1542,6 @@
             const [newApiKey, setNewApiKey] = useState(null);
             const [loading, setLoading] = useState(false);
             const [crawlerStats, setCrawlerStats] = useState(null);
-            const [deduping, setDeduping] = useState(false);
             
             useEffect(() => {
                 loadSites();
@@ -1619,20 +1560,6 @@
                     const data = await api.get('/crawler-stats?days=30');
                     setCrawlerStats(data);
                 } catch (err) {}
-            };
-            
-            const dedupeCrawlers = async () => {
-                if (!confirm('Remove duplicate crawler records? This will clean up any duplicates from multiple syncs.')) return;
-                setDeduping(true);
-                try {
-                    const result = await api.post('/admin/dedupe-crawlers');
-                    alert(`Cleanup complete!\n• ${result.crawlerDuplicatesRemoved || 0} crawler duplicates removed\n• ${result.referralDuplicatesRemoved || 0} referral duplicates removed`);
-                    await loadCrawlerStats();
-                } catch (err) {
-                    alert('Dedupe failed: ' + err.message);
-                } finally {
-                    setDeduping(false);
-                }
             };
             
             const registerSite = async () => {
@@ -1825,18 +1752,6 @@
                                         </div>
                                     </div>
                                 )}
-                                
-                                {/* Dedupe Button */}
-                                <div className="mt-6 pt-4 border-t border-slate-700">
-                                    <button
-                                        onClick={dedupeCrawlers}
-                                        disabled={deduping}
-                                        className="text-sm text-slate-400 hover:text-amber-400 transition-colors"
-                                    >
-                                        {deduping ? '🔄 Cleaning up...' : '🧹 Remove Duplicate Records'}
-                                    </button>
-                                    <p className="text-xs text-slate-500 mt-1">Clean up duplicates from multiple syncs</p>
-                                </div>
                             </div>
                         )}
                         
