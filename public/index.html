@@ -210,6 +210,7 @@
             const [expandedResponse, setExpandedResponse] = useState(null);
             const [crawlerStats, setCrawlerStats] = useState(null);
             const [trendsData, setTrendsData] = useState(null);
+            const [trendsError, setTrendsError] = useState(null);
             const [loadingTrends, setLoadingTrends] = useState(false);
             const [menuOpen, setMenuOpen] = useState(false);
             
@@ -230,12 +231,14 @@
             
             const loadTrends = async (brandId) => {
                 setLoadingTrends(true);
+                setTrendsError(null);
                 try {
                     const data = await api.get(`/brands/${brandId}/trends`);
                     setTrendsData(data);
                 } catch (err) {
                     console.error('Failed to load trends:', err);
                     setTrendsData(null);
+                    setTrendsError(err.message);
                 } finally {
                     setLoadingTrends(false);
                 }
@@ -1060,13 +1063,17 @@
                             </div>
                         )}
                         
-                        {/* Key configured but no trends data - offer refresh */}
+                        {/* Key configured but no trends data - show error or offer refresh */}
                         {!trendsData && !loadingTrends && apiStatus.searchapi && (
                             <div className="glass rounded-2xl p-6 mb-6">
                                 <div className="text-center py-4">
                                     <span className="text-4xl mb-4 block">📈</span>
                                     <h3 className="text-lg font-semibold mb-2">Google Trends</h3>
-                                    <p className="text-slate-400 mb-4">No trends data available. Make sure the brand has keywords set.</p>
+                                    {trendsError ? (
+                                        <p className="text-red-400 mb-4">Error: {trendsError}</p>
+                                    ) : (
+                                        <p className="text-slate-400 mb-4">Click below to load Google Trends data.</p>
+                                    )}
                                     <button onClick={() => loadTrends(selectedBrand)} className="btn-primary px-6 py-2 rounded-lg">
                                         🔄 Load Trends Data
                                     </button>
@@ -1314,7 +1321,10 @@
             const saveKeywords = async (brandId) => {
                 setSaving(true);
                 try {
-                    const brand = brands.find(b => b.id === brandId);
+                    const brand = brands.find(b => b.id == brandId);
+                    if (!brand) {
+                        throw new Error('Brand not found');
+                    }
                     await api.put(`/brands/${brandId}`, { 
                         name: brand.name, 
                         domain: brand.domain,
