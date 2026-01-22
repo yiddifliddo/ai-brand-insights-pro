@@ -26,7 +26,7 @@ const sentiment = new Sentiment();
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: '10mb' }));  // Increased for crawler sync
+app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -909,41 +909,10 @@ app.delete('/api/competitors/:id', authenticateToken, requireAdmin, (req, res) =
 
 app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) => {
     const { query_text, category } = req.body;
-    
-    // Check for duplicate query
-    const existing = db.prepare('SELECT id FROM queries WHERE brand_id = ? AND query_text = ? AND is_active = 1').get(
-        req.params.id, query_text
-    );
-    if (existing) {
-        return res.status(400).json({ error: 'This query already exists for this brand' });
-    }
-    
     const result = db.prepare('INSERT INTO queries (brand_id, query_text, category) VALUES (?, ?, ?)').run(
         req.params.id, query_text, category || 'general'
     );
     res.json({ id: result.lastInsertRowid, query_text, category });
-});
-
-// Delete a query
-app.delete('/api/queries/:id', authenticateToken, requireAdmin, (req, res) => {
-    const query = db.prepare('SELECT * FROM queries WHERE id = ?').get(req.params.id);
-    if (!query) {
-        return res.status(404).json({ error: 'Query not found' });
-    }
-    
-    try {
-        // First delete any related query_results
-        db.prepare('DELETE FROM query_results WHERE query_id = ?').run(req.params.id);
-        // Then delete the query
-        db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
-        logActivity(req.user.id, 'query_deleted', { queryId: req.params.id, query_text: query.query_text });
-        res.json({ success: true });
-    } catch (err) {
-        // If delete fails, just mark as inactive instead
-        db.prepare('UPDATE queries SET is_active = 0 WHERE id = ?').run(req.params.id);
-        logActivity(req.user.id, 'query_deactivated', { queryId: req.params.id, query_text: query.query_text });
-        res.json({ success: true, deactivated: true });
-    }
 });
 
 // ============================================
@@ -988,43 +957,30 @@ async function queryGemini(prompt) {
         return { error: 'Gemini not configured', response: null };
     }
     
-    // List of models to try in order (from Google AI Studio dashboard)
-    const models = ['gemini-2.5-flash', 'gemini-3-flash', 'gemini-2.5-flash-lite'];
-    
-    for (const model of models) {
-        try {
-            console.log(`🔍 Gemini: Trying ${model}...`);
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
-            });
-            
-            if (response.status === 404) {
-                console.log(`⚠️ Gemini: Model ${model} not found, trying next...`);
-                continue;
-            }
-            
-            const data = await response.json();
-            
-            if (data.error) {
-                console.error(`❌ Gemini Error (${model}):`, data.error.message);
-                if (data.error.code === 404) continue;
-                return { error: data.error.message, response: null };
-            }
-            
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            console.log(`✅ Gemini: Got response from ${model}`);
-            return { response: text };
-        } catch (error) {
-            console.error(`❌ Gemini Error (${model}):`, error.message);
-            continue;
+    try {
+        console.log('🔍 Gemini: Querying...');
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('❌ Gemini Error:', data.error.message);
+            return { error: data.error.message, response: null };
         }
+        
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        console.log('✅ Gemini: Got response');
+        return { response: text };
+    } catch (error) {
+        console.error('❌ Gemini Error:', error.message);
+        return { error: error.message, response: null };
     }
-    
-    return { error: 'All Gemini models failed', response: null };
 }
 
 async function queryPerplexity(prompt) {
@@ -2091,40 +2047,20 @@ app.post('/api/webhook/crawler', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    console.log(`📥 Crawler sync from ${site.domain}: ${visits.length} visits received`);
-    
-    // Check for duplicates before inserting
-    const checkStmt = db.prepare(`
-        SELECT id FROM crawler_visits 
-        WHERE site_domain = ? AND bot_name = ? AND page_url = ? AND visited_at = ?
-        LIMIT 1
-    `);
-    
-    const insertStmt = db.prepare(`
+    const stmt = db.prepare(`
         INSERT INTO crawler_visits (site_domain, bot_name, company, bot_type, page_url, page_title, ip_address, visited_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     let inserted = 0;
-    let skipped = 0;
     for (const v of visits) {
         try {
-            // Check if this exact visit already exists
-            const existing = checkStmt.get(site.domain, v.bot_name, v.page_url, v.visited_at);
-            if (existing) {
-                skipped++;
-                continue;
-            }
-            insertStmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
+            stmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
             inserted++;
-        } catch (e) {
-            console.error(`❌ Crawler insert error: ${e.message}`);
-            skipped++;
-        }
+        } catch (e) {}
     }
     
-    console.log(`✅ Crawler sync complete: ${inserted} inserted, ${skipped} skipped/duplicates`);
-    res.json({ success: true, inserted, skipped, received: visits.length });
+    res.json({ success: true, inserted });
 });
 
 // Webhook: Receive referral visits from WordPress
@@ -2138,67 +2074,20 @@ app.post('/api/webhook/referral', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    // Check for duplicates
-    const checkStmt = db.prepare(`
-        SELECT id FROM referral_visits 
-        WHERE site_domain = ? AND platform_name = ? AND page_url = ? AND visited_at = ?
-        LIMIT 1
-    `);
-    
-    const insertStmt = db.prepare(`
+    const stmt = db.prepare(`
         INSERT INTO referral_visits (site_domain, platform_name, company, page_url, page_title, referrer_url, visited_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
     let inserted = 0;
-    let skipped = 0;
     for (const v of visits) {
         try {
-            const existing = checkStmt.get(site.domain, v.platform_name, v.page_url, v.visited_at);
-            if (existing) {
-                skipped++;
-                continue;
-            }
-            insertStmt.run(site.domain, v.platform_name, v.company, v.page_url, v.page_title, v.referrer_url, v.visited_at);
+            stmt.run(site.domain, v.platform_name, v.company, v.page_url, v.page_title, v.referrer_url, v.visited_at);
             inserted++;
-        } catch (e) {
-            skipped++;
-        }
+        } catch (e) {}
     }
     
-    res.json({ success: true, inserted, skipped });
-});
-
-// Admin endpoint to deduplicate crawler data
-app.post('/api/admin/dedupe-crawlers', authenticateToken, requireAdmin, (req, res) => {
-    try {
-        // Delete duplicates keeping only the first occurrence
-        const result = db.prepare(`
-            DELETE FROM crawler_visits 
-            WHERE id NOT IN (
-                SELECT MIN(id) 
-                FROM crawler_visits 
-                GROUP BY site_domain, bot_name, page_url, visited_at
-            )
-        `).run();
-        
-        const resultRef = db.prepare(`
-            DELETE FROM referral_visits 
-            WHERE id NOT IN (
-                SELECT MIN(id) 
-                FROM referral_visits 
-                GROUP BY site_domain, platform_name, page_url, visited_at
-            )
-        `).run();
-        
-        res.json({ 
-            success: true, 
-            crawlerDuplicatesRemoved: result.changes,
-            referralDuplicatesRemoved: resultRef.changes
-        });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+    res.json({ success: true, inserted });
 });
 
 // Get crawler stats for dashboard
@@ -2276,34 +2165,6 @@ app.get('/api/sites', authenticateToken, (req, res) => {
     res.json(sites);
 });
 
-// Get sync statistics for debugging
-app.get('/api/sites/sync-stats', authenticateToken, (req, res) => {
-    const domain = req.query.domain;
-    const domainFilter = domain ? ` WHERE site_domain LIKE '%${domain}%'` : '';
-    
-    const crawlerCount = db.prepare(`SELECT COUNT(*) as count FROM crawler_visits${domainFilter}`).get();
-    const referralCount = db.prepare(`SELECT COUNT(*) as count FROM referral_visits${domainFilter}`).get();
-    const oldestCrawler = db.prepare(`SELECT MIN(visited_at) as oldest FROM crawler_visits${domainFilter}`).get();
-    const newestCrawler = db.prepare(`SELECT MAX(visited_at) as newest FROM crawler_visits${domainFilter}`).get();
-    
-    // Get breakdown by domain
-    const byDomain = db.prepare(`
-        SELECT site_domain, COUNT(*) as count 
-        FROM crawler_visits 
-        GROUP BY site_domain
-    `).all();
-    
-    res.json({
-        crawlerVisits: crawlerCount.count,
-        referralVisits: referralCount.count,
-        dateRange: {
-            oldest: oldestCrawler.oldest,
-            newest: newestCrawler.newest
-        },
-        byDomain
-    });
-});
-
 // Delete a registered site
 app.delete('/api/sites/:id', authenticateToken, (req, res) => {
     const site = db.prepare('SELECT * FROM sites WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
@@ -2319,6 +2180,52 @@ app.delete('/api/sites/:id', authenticateToken, (req, res) => {
     db.prepare('DELETE FROM sites WHERE id = ?').run(req.params.id);
     
     res.json({ success: true });
+});
+
+// Google Trends data via SearchAPI
+app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
+    const brandId = req.params.id;
+    const brand = db.prepare('SELECT * FROM brands WHERE id = ?').get(brandId);
+    
+    if (!brand) {
+        return res.status(404).json({ error: 'Brand not found' });
+    }
+    
+    const apiKey = getApiKey('searchapi');
+    if (!apiKey) {
+        return res.status(400).json({ error: 'SearchAPI key not configured' });
+    }
+    
+    try {
+        // Get keywords from brand - use brand name and keywords
+        const keywords = brand.keywords ? brand.keywords.split(',').slice(0, 5).map(k => k.trim()) : [brand.name];
+        const searchTerms = keywords.join(',');
+        
+        const response = await fetch(
+            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(searchTerms)}&data_type=TIMESERIES&api_key=${apiKey}`
+        );
+        
+        if (!response.ok) {
+            throw new Error(`SearchAPI error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Process the data for our dashboard
+        const trendsData = {
+            brand: brand.name,
+            keywords: keywords,
+            interest_over_time: data.interest_over_time || [],
+            compared_breakdown_by_region: data.compared_breakdown_by_region || [],
+            related_queries: data.related_queries || [],
+            fetched_at: new Date().toISOString()
+        };
+        
+        res.json(trendsData);
+    } catch (err) {
+        console.error('Google Trends error:', err);
+        res.status(500).json({ error: 'Failed to fetch trends data: ' + err.message });
+    }
 });
 
 // Health check
