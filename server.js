@@ -2203,29 +2203,75 @@ app.get('/api/brands/:id/trends', authenticateToken, async (req, res) => {
     try {
         // Get keywords from brand - use brand name and keywords
         const keywords = brand.keywords ? brand.keywords.split(',').slice(0, 5).map(k => k.trim()) : [brand.name];
-        const searchTerms = keywords.join(',');
+        const firstKeyword = keywords[0];
         
-        const response = await fetch(
-            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(searchTerms)}&data_type=TIMESERIES&date=today%2012-m&api_key=${apiKey}`
+        // Step 1: Get topic ID from RELATED_TOPICS
+        console.log(`🔍 Trends: Fetching topic ID for "${firstKeyword}"...`);
+        const topicsResponse = await fetch(
+            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(firstKeyword)}&data_type=RELATED_TOPICS&api_key=${apiKey}`
         );
         
-        if (!response.ok) {
-            throw new Error(`SearchAPI error: ${response.status}`);
+        if (!topicsResponse.ok) {
+            throw new Error(`SearchAPI topics error: ${topicsResponse.status}`);
         }
         
-        const data = await response.json();
+        const topicsData = await topicsResponse.json();
+        
+        // Extract topic ID from response - look in top topics first
+        let topicId = null;
+        let topicTitle = firstKeyword;
+        
+        if (topicsData.related_topics?.top && topicsData.related_topics.top.length > 0) {
+            // Get the first/top topic
+            const topTopic = topicsData.related_topics.top[0];
+            topicId = topTopic.id; // e.g., "/m/05z1_" or "/g/11cjnkl9pk"
+            topicTitle = topTopic.title || firstKeyword;
+            console.log(`✅ Trends: Found topic ID "${topicId}" for "${topicTitle}"`);
+        }
+        
+        // Step 2: Fetch TIMESERIES using topic ID (or fall back to text query)
+        const searchQuery = topicId || firstKeyword;
+        console.log(`📈 Trends: Fetching timeseries for "${searchQuery}"...`);
+        
+        const timeseriesResponse = await fetch(
+            `https://www.searchapi.io/api/v1/search?engine=google_trends&q=${encodeURIComponent(searchQuery)}&data_type=TIMESERIES&geo=US&date=today%2012-m&api_key=${apiKey}`
+        );
+        
+        if (!timeseriesResponse.ok) {
+            throw new Error(`SearchAPI timeseries error: ${timeseriesResponse.status}`);
+        }
+        
+        const data = await timeseriesResponse.json();
+        
+        // Check for error in response (e.g., "not enough data")
+        if (data.error) {
+            console.log('SearchAPI returned error:', data.error);
+            return res.json({
+                brand: brand.name,
+                keywords: keywords,
+                topicId: topicId,
+                topicTitle: topicTitle,
+                interest_over_time: [],
+                compared_breakdown_by_region: [],
+                related_queries: [],
+                fetched_at: new Date().toISOString(),
+                error: data.error
+            });
+        }
         
         // Process the data for our dashboard
-        // SearchAPI returns interest_over_time.timeline_data, not interest_over_time directly
         const trendsData = {
             brand: brand.name,
             keywords: keywords,
+            topicId: topicId,
+            topicTitle: topicTitle,
             interest_over_time: data.interest_over_time?.timeline_data || data.interest_over_time || [],
             compared_breakdown_by_region: data.compared_breakdown_by_region || [],
             related_queries: data.related_queries?.rising || data.related_queries || [],
             fetched_at: new Date().toISOString()
         };
         
+        console.log(`✅ Trends: Got ${trendsData.interest_over_time.length} data points`);
         res.json(trendsData);
     } catch (err) {
         console.error('Google Trends error:', err);
