@@ -1267,8 +1267,7 @@
                 try {
                     const data = await api.get('/admin/api-keys');
                     const searchapi = data.find(k => k.platform === 'searchapi');
-                    // Don't load the masked key into the input - leave empty for new key entry
-                    // The apiStatus.searchapi will show if it's configured
+                    // Don't load masked key - just leave empty, apiStatus shows if configured
                 } catch (err) {}
             };
             
