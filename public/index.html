@@ -402,10 +402,10 @@
             return (
                 <div className="min-h-screen">
                     {/* Header */}
-                    <header className="glass-dark sticky top-0 z-50 px-6 py-4">
-                        <div className="max-w-7xl mx-auto flex items-center gap-6">
+                    <header className="glass-dark sticky top-0 z-50 px-4 py-3">
+                        <div className="flex items-center gap-4">
                             {/* Logo and Title - fixed width, won't shrink */}
-                            <div className="flex items-center gap-3 flex-shrink-0 min-w-[200px]">
+                            <div className="flex items-center gap-3 flex-shrink-0">
                                 <img 
                                     src="https://americanbiotechsupply.com/wp-content/uploads/2026/01/SXI_BIG-416c9b33.png" 
                                     alt="Standex" 
@@ -417,10 +417,10 @@
                                 </div>
                             </div>
                             
-                            {/* Right side controls - allow to wrap/scroll if needed */}
-                            <div className="flex items-center gap-3 flex-1 justify-end overflow-x-auto">
+                            {/* Right side controls */}
+                            <div className="flex items-center gap-3 flex-1 justify-end">
                                 {/* Platform filters */}
-                                <div className="flex gap-1 flex-shrink-0">
+                                <div className="flex gap-2 flex-shrink-0">
                                     {[
                                         { id: 'all', label: 'All Platforms', icon: '🌐' },
                                         { id: 'chatgpt', label: 'ChatGPT', icon: '🤖' },
@@ -432,7 +432,7 @@
                                         <button
                                             key={p.id}
                                             onClick={() => setActivePlatform(p.id)}
-                                            className={`platform-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-sm transition-all ${
+                                            className={`platform-btn flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
                                                 activePlatform === p.id 
                                                     ? 'active border-sky-500 bg-sky-500/20' 
                                                     : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
@@ -448,7 +448,7 @@
                                 <select
                                     value={selectedBrand || ''}
                                     onChange={e => setSelectedBrand(e.target.value)}
-                                    className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-sky-500 flex-shrink-0"
+                                    className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-sky-500 flex-shrink-0"
                                 >
                                     {brands.map(b => (
                                         <option key={b.id} value={b.id}>{b.name}</option>
@@ -464,7 +464,7 @@
                                         loadCrawlerStats(brand?.domain);
                                         loadTrends(selectedBrand);
                                     }}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm bg-slate-700 hover:bg-slate-600 transition-colors flex-shrink-0"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-slate-700 hover:bg-slate-600 transition-colors flex-shrink-0"
                                     title="Refresh Data"
                                 >
                                     🔄 Refresh
@@ -474,7 +474,7 @@
                                 <button
                                     onClick={runAnalysis}
                                     disabled={analyzing}
-                                    className="btn-primary flex items-center gap-2 px-4 py-1.5 rounded-lg font-medium text-sm disabled:opacity-50 flex-shrink-0"
+                                    className="btn-primary flex items-center gap-2 px-5 py-2 rounded-lg font-medium text-sm disabled:opacity-50 flex-shrink-0"
                                 >
                                     {analyzing ? (
                                         <>
