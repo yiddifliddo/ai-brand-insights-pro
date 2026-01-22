@@ -194,6 +194,14 @@ function initDatabase() {
         );
     `);
     
+    // Add indexes for fast duplicate detection
+    try {
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_crawler_visits_dedup ON crawler_visits(site_domain, bot_name, page_url, visited_at)`);
+        db.exec(`CREATE INDEX IF NOT EXISTS idx_referral_visits_dedup ON referral_visits(site_domain, platform_name, page_url, visited_at)`);
+    } catch (e) {
+        // Indexes may already exist
+    }
+    
     // Migration: Add competitor_mentions column if it doesn't exist
     try {
         db.exec(`ALTER TABLE query_results ADD COLUMN competitor_mentions TEXT`);
@@ -2050,20 +2058,35 @@ app.post('/api/webhook/crawler', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    const stmt = db.prepare(`
+    // Check for existing visits to prevent duplicates
+    const checkStmt = db.prepare(`
+        SELECT id FROM crawler_visits 
+        WHERE site_domain = ? AND bot_name = ? AND page_url = ? AND visited_at = ?
+        LIMIT 1
+    `);
+    
+    const insertStmt = db.prepare(`
         INSERT INTO crawler_visits (site_domain, bot_name, company, bot_type, page_url, page_title, ip_address, visited_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     let inserted = 0;
+    let skipped = 0;
     for (const v of visits) {
         try {
-            stmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
+            // Check if this exact visit already exists
+            const existing = checkStmt.get(site.domain, v.bot_name, v.page_url, v.visited_at);
+            if (existing) {
+                skipped++;
+                continue;
+            }
+            insertStmt.run(site.domain, v.bot_name, v.company, v.bot_type, v.page_url, v.page_title, v.ip_address, v.visited_at);
             inserted++;
         } catch (e) {}
     }
     
-    res.json({ success: true, inserted });
+    console.log(`📊 Crawler sync from ${site.domain}: ${inserted} inserted, ${skipped} duplicates skipped`);
+    res.json({ success: true, inserted, skipped });
 });
 
 // Webhook: Receive referral visits from WordPress
@@ -2077,20 +2100,35 @@ app.post('/api/webhook/referral', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    const stmt = db.prepare(`
+    // Check for existing visits to prevent duplicates
+    const checkStmt = db.prepare(`
+        SELECT id FROM referral_visits 
+        WHERE site_domain = ? AND platform_name = ? AND page_url = ? AND visited_at = ?
+        LIMIT 1
+    `);
+    
+    const insertStmt = db.prepare(`
         INSERT INTO referral_visits (site_domain, platform_name, company, page_url, page_title, referrer_url, visited_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
     let inserted = 0;
+    let skipped = 0;
     for (const v of visits) {
         try {
-            stmt.run(site.domain, v.platform_name, v.company, v.page_url, v.page_title, v.referrer_url, v.visited_at);
+            // Check if this exact visit already exists
+            const existing = checkStmt.get(site.domain, v.platform_name, v.page_url, v.visited_at);
+            if (existing) {
+                skipped++;
+                continue;
+            }
+            insertStmt.run(site.domain, v.platform_name, v.company, v.page_url, v.page_title, v.referrer_url, v.visited_at);
             inserted++;
         } catch (e) {}
     }
     
-    res.json({ success: true, inserted });
+    console.log(`📊 Referral sync from ${site.domain}: ${inserted} inserted, ${skipped} duplicates skipped`);
+    res.json({ success: true, inserted, skipped });
 });
 
 // Get crawler stats for dashboard
@@ -2183,6 +2221,53 @@ app.delete('/api/sites/:id', authenticateToken, (req, res) => {
     db.prepare('DELETE FROM sites WHERE id = ?').run(req.params.id);
     
     res.json({ success: true });
+});
+
+// Clean up duplicate crawler visits
+app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req, res) => {
+    try {
+        // Count before cleanup
+        const beforeCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
+        const beforeReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
+        
+        // Delete duplicate crawler visits, keeping the first occurrence (lowest id)
+        db.exec(`
+            DELETE FROM crawler_visits 
+            WHERE id NOT IN (
+                SELECT MIN(id) 
+                FROM crawler_visits 
+                GROUP BY site_domain, bot_name, page_url, visited_at
+            )
+        `);
+        
+        // Delete duplicate referral visits, keeping the first occurrence (lowest id)
+        db.exec(`
+            DELETE FROM referral_visits 
+            WHERE id NOT IN (
+                SELECT MIN(id) 
+                FROM referral_visits 
+                GROUP BY site_domain, platform_name, page_url, visited_at
+            )
+        `);
+        
+        // Count after cleanup
+        const afterCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
+        const afterReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
+        
+        const removedCrawler = beforeCrawler - afterCrawler;
+        const removedReferral = beforeReferral - afterReferral;
+        
+        console.log(`🧹 Cleanup: Removed ${removedCrawler} duplicate crawler visits, ${removedReferral} duplicate referral visits`);
+        
+        res.json({ 
+            success: true, 
+            crawler: { before: beforeCrawler, after: afterCrawler, removed: removedCrawler },
+            referral: { before: beforeReferral, after: afterReferral, removed: removedReferral }
+        });
+    } catch (err) {
+        console.error('Cleanup error:', err);
+        res.status(500).json({ error: 'Cleanup failed: ' + err.message });
+    }
 });
 
 // Health check
