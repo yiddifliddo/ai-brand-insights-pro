@@ -1357,14 +1357,22 @@ app.get('/api/brands/:id/latest-analysis', authenticateToken, (req, res) => {
         });
     }
     
-    // Get results from the latest runs
+    // Get results from the latest runs - only latest result per query
     const runIds = runs.map(r => r.id);
+    const runIdPlaceholders = runIds.map(() => '?').join(',');
+    
+    // First get the max id for each query_id within these runs
     const results = db.prepare(`
         SELECT qr.*, q.query_text, ar.platform
         FROM query_results qr
         JOIN queries q ON qr.query_id = q.id
         JOIN analysis_runs ar ON qr.run_id = ar.id
-        WHERE qr.run_id IN (${runIds.map(() => '?').join(',')})
+        INNER JOIN (
+            SELECT query_id, MAX(id) as max_id
+            FROM query_results
+            WHERE run_id IN (${runIdPlaceholders})
+            GROUP BY query_id
+        ) latest ON qr.id = latest.max_id
     `).all(...runIds);
     
     // Get citations
