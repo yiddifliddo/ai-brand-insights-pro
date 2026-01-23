@@ -920,6 +920,13 @@ app.delete('/api/competitors/:id', authenticateToken, requireAdmin, (req, res) =
 
 app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) => {
     const { query_text, category } = req.body;
+    
+    // Check for duplicate
+    const existing = db.prepare('SELECT id FROM queries WHERE brand_id = ? AND query_text = ?').get(req.params.id, query_text);
+    if (existing) {
+        return res.status(400).json({ error: 'This query already exists for this brand' });
+    }
+    
     const result = db.prepare('INSERT INTO queries (brand_id, query_text, category) VALUES (?, ?, ?)').run(
         req.params.id, query_text, category || 'general'
     );
@@ -2242,6 +2249,7 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
         // Count before cleanup
         const beforeCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
         const beforeReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
+        const beforeQueries = db.prepare('SELECT COUNT(*) as count FROM queries').get().count;
         
         // Delete duplicate crawler visits - match on same site, bot, page, and same DAY (not exact timestamp)
         // Keep the first occurrence (lowest id)
@@ -2264,19 +2272,44 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
             )
         `);
         
+        // Delete duplicate queries - same brand_id and query_text
+        // First delete query_results for duplicate queries
+        const dupQueries = db.prepare(`
+            SELECT id FROM queries 
+            WHERE id NOT IN (
+                SELECT MIN(id) FROM queries GROUP BY brand_id, query_text
+            )
+        `).all();
+        
+        for (const q of dupQueries) {
+            db.prepare('DELETE FROM query_results WHERE query_id = ?').run(q.id);
+        }
+        
+        db.exec(`
+            DELETE FROM queries 
+            WHERE id NOT IN (
+                SELECT MIN(id) 
+                FROM queries 
+                GROUP BY brand_id, query_text
+            )
+        `);
+        
         // Count after cleanup
         const afterCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
         const afterReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
+        const afterQueries = db.prepare('SELECT COUNT(*) as count FROM queries').get().count;
         
         const removedCrawler = beforeCrawler - afterCrawler;
         const removedReferral = beforeReferral - afterReferral;
+        const removedQueries = beforeQueries - afterQueries;
         
-        console.log(`🧹 Cleanup: Removed ${removedCrawler} duplicate crawler visits, ${removedReferral} duplicate referral visits`);
+        console.log(`🧹 Cleanup: Removed ${removedCrawler} duplicate crawler visits, ${removedReferral} duplicate referral visits, ${removedQueries} duplicate queries`);
         
         res.json({ 
             success: true, 
             crawler: { before: beforeCrawler, after: afterCrawler, removed: removedCrawler },
-            referral: { before: beforeReferral, after: afterReferral, removed: removedReferral }
+            referral: { before: beforeReferral, after: afterReferral, removed: removedReferral },
+            queries: { before: beforeQueries, after: afterQueries, removed: removedQueries }
         });
     } catch (err) {
         console.error('Cleanup error:', err);
