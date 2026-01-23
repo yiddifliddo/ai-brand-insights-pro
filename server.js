@@ -2089,10 +2089,10 @@ app.post('/api/webhook/crawler', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    // Check for existing visits to prevent duplicates - match on same day, not exact timestamp
+    // Check for existing visits to prevent duplicates - exact timestamp match
     const checkStmt = db.prepare(`
         SELECT id FROM crawler_visits 
-        WHERE site_domain = ? AND bot_name = ? AND page_url = ? AND DATE(visited_at) = DATE(?)
+        WHERE site_domain = ? AND bot_name = ? AND page_url = ? AND visited_at = ?
         LIMIT 1
     `);
     
@@ -2131,10 +2131,10 @@ app.post('/api/webhook/referral', (req, res) => {
     const { visits } = req.body;
     if (!visits || !Array.isArray(visits)) return res.status(400).json({ error: 'visits array required' });
     
-    // Check for existing visits to prevent duplicates - match on same day
+    // Check for existing visits to prevent duplicates - exact timestamp match
     const checkStmt = db.prepare(`
         SELECT id FROM referral_visits 
-        WHERE site_domain = ? AND platform_name = ? AND page_url = ? AND DATE(visited_at) = DATE(?)
+        WHERE site_domain = ? AND platform_name = ? AND page_url = ? AND visited_at = ?
         LIMIT 1
     `);
     
@@ -2261,24 +2261,24 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
         const beforeCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
         const beforeReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
         
-        // Delete duplicate crawler visits - match on same site, bot, page, and same DAY (not exact timestamp)
+        // Delete duplicate crawler visits - exact timestamp match
         // Keep the first occurrence (lowest id)
         db.exec(`
             DELETE FROM crawler_visits 
             WHERE id NOT IN (
                 SELECT MIN(id) 
                 FROM crawler_visits 
-                GROUP BY site_domain, bot_name, page_url, DATE(visited_at)
+                GROUP BY site_domain, bot_name, page_url, visited_at
             )
         `);
         
-        // Delete duplicate referral visits - same logic
+        // Delete duplicate referral visits - exact timestamp match
         db.exec(`
             DELETE FROM referral_visits 
             WHERE id NOT IN (
                 SELECT MIN(id) 
                 FROM referral_visits 
-                GROUP BY site_domain, platform_name, page_url, DATE(visited_at)
+                GROUP BY site_domain, platform_name, page_url, visited_at
             )
         `);
         
