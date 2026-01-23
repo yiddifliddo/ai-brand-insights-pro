@@ -927,8 +927,13 @@ app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) 
 });
 
 app.delete('/api/queries/:id', authenticateToken, requireAdmin, (req, res) => {
-    db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
-    res.json({ success: true });
+    try {
+        const result = db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
+        res.json({ success: true, deleted: result.changes });
+    } catch (err) {
+        console.error('Delete query error:', err);
+        res.status(500).json({ error: 'Failed to delete query' });
+    }
 });
 
 // ============================================
