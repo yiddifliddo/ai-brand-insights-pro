@@ -1251,11 +1251,13 @@
             const [selectedBrand, setSelectedBrand] = useState(null);
             const [brandDetails, setBrandDetails] = useState(null);
             const [newCompetitor, setNewCompetitor] = useState('');
+            const [newQuery, setNewQuery] = useState('');
             const [saving, setSaving] = useState(false);
             const [editingBrand, setEditingBrand] = useState(null);
             const [editName, setEditName] = useState('');
             const [editDomain, setEditDomain] = useState('');
             const [editKeywords, setEditKeywords] = useState('');
+            const [generatingQueries, setGeneratingQueries] = useState(false);
             
             useEffect(() => {
                 if (brands.length > 0 && !selectedBrand) {
@@ -1325,6 +1327,44 @@
                     await loadBrandDetails(selectedBrand);
                 } catch (err) {
                     alert('Failed to remove competitor: ' + err.message);
+                }
+            };
+            
+            const addQuery = async () => {
+                if (!newQuery.trim() || !selectedBrand) return;
+                setSaving(true);
+                try {
+                    await api.post(`/brands/${selectedBrand}/queries`, { query_text: newQuery.trim() });
+                    setNewQuery('');
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to add query: ' + err.message);
+                } finally {
+                    setSaving(false);
+                }
+            };
+            
+            const deleteQuery = async (queryId) => {
+                if (!confirm('Remove this query?')) return;
+                try {
+                    await api.delete(`/queries/${queryId}`);
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Failed to remove query: ' + err.message);
+                }
+            };
+            
+            const generateQueries = async () => {
+                if (!selectedBrand) return;
+                setGeneratingQueries(true);
+                try {
+                    const result = await api.post(`/brands/${selectedBrand}/generate-queries`);
+                    await loadBrandDetails(selectedBrand);
+                    alert(`Generated ${result.added || 0} new queries!`);
+                } catch (err) {
+                    alert('Failed to generate queries: ' + err.message);
+                } finally {
+                    setGeneratingQueries(false);
                 }
             };
             
@@ -1462,6 +1502,75 @@
                                 )}
                             </div>
                         </div>
+                        
+                        {/* Queries Section */}
+                        {brandDetails && (
+                            <div className="glass rounded-2xl p-6 mt-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="font-semibold">
+                                        Queries for {brandDetails?.name}
+                                    </h3>
+                                    <button
+                                        onClick={generateQueries}
+                                        disabled={generatingQueries}
+                                        className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                                    >
+                                        {generatingQueries ? '🔄 Generating...' : '✨ Auto-Generate Queries'}
+                                    </button>
+                                </div>
+                                
+                                <div className="mb-4">
+                                    <div className="flex gap-3">
+                                        <input
+                                            type="text"
+                                            value={newQuery}
+                                            onChange={e => setNewQuery(e.target.value)}
+                                            onKeyPress={e => e.key === 'Enter' && addQuery()}
+                                            placeholder="Enter a query (e.g., 'Best laboratory freezers for vaccine storage')"
+                                            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-sky-500"
+                                        />
+                                        <button
+                                            onClick={addQuery}
+                                            disabled={saving || !newQuery.trim()}
+                                            className="btn-primary px-6 py-3 rounded-lg font-medium disabled:opacity-50"
+                                        >
+                                            {saving ? 'Adding...' : 'Add'}
+                                        </button>
+                                    </div>
+                                    <p className="text-slate-500 text-sm mt-2">
+                                        These queries will be sent to AI platforms when you run analysis.
+                                    </p>
+                                </div>
+                                
+                                <div className="space-y-2 max-h-80 overflow-y-auto">
+                                    {brandDetails.queries?.length > 0 ? (
+                                        brandDetails.queries.map(q => (
+                                            <div key={q.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                                                <div className="flex-1">
+                                                    <p className="text-sm">{q.query_text}</p>
+                                                    {q.category && q.category !== 'general' && (
+                                                        <span className="text-xs text-slate-500">{q.category}</span>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => deleteQuery(q.id)}
+                                                    className="text-red-400 hover:text-red-300 p-2 ml-2"
+                                                    title="Remove query"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-slate-500 text-center py-8">
+                                            No queries yet. Add queries above or use Auto-Generate to create them.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
