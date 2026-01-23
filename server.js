@@ -2249,7 +2249,6 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
         // Count before cleanup
         const beforeCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
         const beforeReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
-        const beforeQueries = db.prepare('SELECT COUNT(*) as count FROM queries').get().count;
         
         // Delete duplicate crawler visits - match on same site, bot, page, and same DAY (not exact timestamp)
         // Keep the first occurrence (lowest id)
@@ -2272,8 +2271,32 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
             )
         `);
         
-        // Delete duplicate queries - same brand_id and query_text
-        // First delete query_results for duplicate queries
+        // Count after cleanup
+        const afterCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
+        const afterReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
+        
+        const removedCrawler = beforeCrawler - afterCrawler;
+        const removedReferral = beforeReferral - afterReferral;
+        
+        console.log(`🧹 Cleanup: Removed ${removedCrawler} duplicate crawler visits, ${removedReferral} duplicate referral visits`);
+        
+        res.json({ 
+            success: true, 
+            crawler: { before: beforeCrawler, after: afterCrawler, removed: removedCrawler },
+            referral: { before: beforeReferral, after: afterReferral, removed: removedReferral }
+        });
+    } catch (err) {
+        console.error('Cleanup error:', err);
+        res.status(500).json({ error: 'Cleanup failed: ' + err.message });
+    }
+});
+
+// Clean up duplicate queries
+app.post('/api/admin/cleanup-duplicate-queries', authenticateToken, requireAdmin, (req, res) => {
+    try {
+        const beforeQueries = db.prepare('SELECT COUNT(*) as count FROM queries').get().count;
+        
+        // Find duplicate queries (same brand_id and query_text)
         const dupQueries = db.prepare(`
             SELECT id FROM queries 
             WHERE id NOT IN (
@@ -2281,10 +2304,12 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
             )
         `).all();
         
+        // Delete query_results for duplicate queries first
         for (const q of dupQueries) {
             db.prepare('DELETE FROM query_results WHERE query_id = ?').run(q.id);
         }
         
+        // Delete the duplicate queries
         db.exec(`
             DELETE FROM queries 
             WHERE id NOT IN (
@@ -2294,25 +2319,17 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
             )
         `);
         
-        // Count after cleanup
-        const afterCrawler = db.prepare('SELECT COUNT(*) as count FROM crawler_visits').get().count;
-        const afterReferral = db.prepare('SELECT COUNT(*) as count FROM referral_visits').get().count;
         const afterQueries = db.prepare('SELECT COUNT(*) as count FROM queries').get().count;
-        
-        const removedCrawler = beforeCrawler - afterCrawler;
-        const removedReferral = beforeReferral - afterReferral;
         const removedQueries = beforeQueries - afterQueries;
         
-        console.log(`🧹 Cleanup: Removed ${removedCrawler} duplicate crawler visits, ${removedReferral} duplicate referral visits, ${removedQueries} duplicate queries`);
+        console.log(`🧹 Cleanup: Removed ${removedQueries} duplicate queries`);
         
         res.json({ 
             success: true, 
-            crawler: { before: beforeCrawler, after: afterCrawler, removed: removedCrawler },
-            referral: { before: beforeReferral, after: afterReferral, removed: removedReferral },
             queries: { before: beforeQueries, after: afterQueries, removed: removedQueries }
         });
     } catch (err) {
-        console.error('Cleanup error:', err);
+        console.error('Cleanup queries error:', err);
         res.status(500).json({ error: 'Cleanup failed: ' + err.message });
     }
 });
