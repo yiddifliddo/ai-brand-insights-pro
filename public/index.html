@@ -1258,6 +1258,8 @@
             const [editDomain, setEditDomain] = useState('');
             const [editKeywords, setEditKeywords] = useState('');
             const [generatingQueries, setGeneratingQueries] = useState(false);
+            const [cleaningUpQueries, setCleaningUpQueries] = useState(false);
+            const [queryCleanupResult, setQueryCleanupResult] = useState(null);
             
             useEffect(() => {
                 if (brands.length > 0 && !selectedBrand) {
@@ -1365,6 +1367,21 @@
                     alert('Failed to generate queries: ' + err.message);
                 } finally {
                     setGeneratingQueries(false);
+                }
+            };
+            
+            const cleanupDuplicateQueries = async () => {
+                if (!confirm('Remove duplicate queries across all brands?')) return;
+                setCleaningUpQueries(true);
+                setQueryCleanupResult(null);
+                try {
+                    const result = await api.post('/admin/cleanup-duplicate-queries');
+                    setQueryCleanupResult(result);
+                    await loadBrandDetails(selectedBrand);
+                } catch (err) {
+                    alert('Cleanup failed: ' + err.message);
+                } finally {
+                    setCleaningUpQueries(false);
                 }
             };
             
@@ -1510,14 +1527,29 @@
                                     <h3 className="font-semibold">
                                         Queries for {brandDetails?.name}
                                     </h3>
-                                    <button
-                                        onClick={generateQueries}
-                                        disabled={generatingQueries}
-                                        className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-                                    >
-                                        {generatingQueries ? '🔄 Generating...' : '✨ Auto-Generate Queries'}
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={cleanupDuplicateQueries}
+                                            disabled={cleaningUpQueries}
+                                            className="bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                                        >
+                                            {cleaningUpQueries ? '🔄 Cleaning...' : '🧹 Remove Duplicates'}
+                                        </button>
+                                        <button
+                                            onClick={generateQueries}
+                                            disabled={generatingQueries}
+                                            className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                                        >
+                                            {generatingQueries ? '🔄 Generating...' : '✨ Auto-Generate Queries'}
+                                        </button>
+                                    </div>
                                 </div>
+                                
+                                {queryCleanupResult && (
+                                    <div className="mb-4 p-3 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
+                                        <p className="text-emerald-400 text-sm">✅ Removed {queryCleanupResult.queries?.removed || 0} duplicate queries</p>
+                                    </div>
+                                )}
                                 
                                 <div className="mb-4">
                                     <div className="flex gap-3">
@@ -1817,7 +1849,7 @@
                         <div className="glass rounded-2xl p-6 mb-6">
                             <h3 className="font-semibold mb-4">🧹 Data Maintenance</h3>
                             <p className="text-slate-400 text-sm mb-4">
-                                Remove duplicate crawler entries, referral visits, and queries that may have been synced or added multiple times.
+                                Remove duplicate crawler entries that may have been synced multiple times.
                             </p>
                             <button
                                 onClick={cleanupDuplicates}
@@ -1831,9 +1863,8 @@
                                 <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
                                     <p className="text-emerald-400 font-medium">✅ Cleanup Complete</p>
                                     <p className="text-slate-300 text-sm mt-1">
-                                        Removed {cleanupResult.crawler?.removed || 0} duplicate crawler visits, 
-                                        {cleanupResult.referral?.removed || 0} duplicate referral visits,
-                                        and {cleanupResult.queries?.removed || 0} duplicate queries.
+                                        Removed {cleanupResult.crawler?.removed || 0} duplicate crawler visits 
+                                        and {cleanupResult.referral?.removed || 0} duplicate referral visits.
                                     </p>
                                 </div>
                             )}
