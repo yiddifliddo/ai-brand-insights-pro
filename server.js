@@ -1319,22 +1319,33 @@ app.get('/api/brands/:id/latest-analysis', authenticateToken, (req, res) => {
     // Get queries
     const queries = db.prepare('SELECT * FROM queries WHERE brand_id = ?').all(brandId);
     
-    // Get latest runs (one per platform or filtered)
-    let runsQuery = `
-        SELECT ar.*, u.name as run_by_name 
-        FROM analysis_runs ar
-        LEFT JOIN users u ON ar.run_by = u.id
-        WHERE ar.brand_id = ? AND ar.status = 'completed'
-    `;
-    const params = [brandId];
+    // Get latest runs (only the MOST RECENT run per platform)
+    let runs;
     
     if (platform && platform !== 'all') {
-        runsQuery += ' AND ar.platform = ?';
-        params.push(platform);
+        // Single platform - get only the most recent run
+        runs = db.prepare(`
+            SELECT ar.*, u.name as run_by_name 
+            FROM analysis_runs ar
+            LEFT JOIN users u ON ar.run_by = u.id
+            WHERE ar.brand_id = ? AND ar.status = 'completed' AND ar.platform = ?
+            ORDER BY ar.run_date DESC LIMIT 1
+        `).all(brandId, platform);
+    } else {
+        // All platforms - get the most recent run for EACH platform
+        runs = db.prepare(`
+            SELECT ar.*, u.name as run_by_name 
+            FROM analysis_runs ar
+            LEFT JOIN users u ON ar.run_by = u.id
+            INNER JOIN (
+                SELECT platform, MAX(run_date) as max_date
+                FROM analysis_runs
+                WHERE brand_id = ? AND status = 'completed'
+                GROUP BY platform
+            ) latest ON ar.platform = latest.platform AND ar.run_date = latest.max_date
+            WHERE ar.brand_id = ? AND ar.status = 'completed'
+        `).all(brandId, brandId);
     }
-    
-    runsQuery += ' ORDER BY ar.run_date DESC LIMIT 10';
-    const runs = db.prepare(runsQuery).all(...params);
     
     if (runs.length === 0) {
         return res.json({
