@@ -926,6 +926,11 @@ app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) 
     res.json({ id: result.lastInsertRowid, query_text, category });
 });
 
+app.delete('/api/queries/:id', authenticateToken, requireAdmin, (req, res) => {
+    db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
 // ============================================
 // Analysis Routes
 // ============================================
