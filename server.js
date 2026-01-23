@@ -928,6 +928,9 @@ app.post('/api/brands/:id/queries', authenticateToken, requireAdmin, (req, res) 
 
 app.delete('/api/queries/:id', authenticateToken, requireAdmin, (req, res) => {
     try {
+        // First delete any query results that reference this query
+        db.prepare('DELETE FROM query_results WHERE query_id = ?').run(req.params.id);
+        // Then delete the query itself
         const result = db.prepare('DELETE FROM queries WHERE id = ?').run(req.params.id);
         res.json({ success: true, deleted: result.changes });
     } catch (err) {
