@@ -2291,12 +2291,27 @@ app.post('/api/admin/cleanup-duplicates', authenticateToken, requireAdmin, (req,
     }
 });
 
-// Clean up duplicate queries
+// Clean up duplicate queries and query results
 app.post('/api/admin/cleanup-duplicate-queries', authenticateToken, requireAdmin, (req, res) => {
     try {
+        // First clean up duplicate query_results (same run_id, query_id, platform)
+        const beforeResults = db.prepare('SELECT COUNT(*) as count FROM query_results').get().count;
+        
+        db.exec(`
+            DELETE FROM query_results 
+            WHERE id NOT IN (
+                SELECT MIN(id) 
+                FROM query_results 
+                GROUP BY run_id, query_id, platform
+            )
+        `);
+        
+        const afterResults = db.prepare('SELECT COUNT(*) as count FROM query_results').get().count;
+        const removedResults = beforeResults - afterResults;
+        
+        // Then clean up duplicate queries (same brand_id and query_text)
         const beforeQueries = db.prepare('SELECT COUNT(*) as count FROM queries').get().count;
         
-        // Find duplicate queries (same brand_id and query_text)
         const dupQueries = db.prepare(`
             SELECT id FROM queries 
             WHERE id NOT IN (
@@ -2304,12 +2319,10 @@ app.post('/api/admin/cleanup-duplicate-queries', authenticateToken, requireAdmin
             )
         `).all();
         
-        // Delete query_results for duplicate queries first
         for (const q of dupQueries) {
             db.prepare('DELETE FROM query_results WHERE query_id = ?').run(q.id);
         }
         
-        // Delete the duplicate queries
         db.exec(`
             DELETE FROM queries 
             WHERE id NOT IN (
@@ -2322,10 +2335,11 @@ app.post('/api/admin/cleanup-duplicate-queries', authenticateToken, requireAdmin
         const afterQueries = db.prepare('SELECT COUNT(*) as count FROM queries').get().count;
         const removedQueries = beforeQueries - afterQueries;
         
-        console.log(`🧹 Cleanup: Removed ${removedQueries} duplicate queries`);
+        console.log(`🧹 Cleanup: Removed ${removedResults} duplicate query results, ${removedQueries} duplicate queries`);
         
         res.json({ 
             success: true, 
+            results: { before: beforeResults, after: afterResults, removed: removedResults },
             queries: { before: beforeQueries, after: afterQueries, removed: removedQueries }
         });
     } catch (err) {
