@@ -1817,7 +1817,7 @@
                         <div className="glass rounded-2xl p-6 mb-6">
                             <h3 className="font-semibold mb-4">🧹 Data Maintenance</h3>
                             <p className="text-slate-400 text-sm mb-4">
-                                Remove duplicate crawler entries that may have been synced multiple times.
+                                Remove duplicate crawler entries, referral visits, and queries that may have been synced or added multiple times.
                             </p>
                             <button
                                 onClick={cleanupDuplicates}
@@ -1831,8 +1831,9 @@
                                 <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-lg">
                                     <p className="text-emerald-400 font-medium">✅ Cleanup Complete</p>
                                     <p className="text-slate-300 text-sm mt-1">
-                                        Removed {cleanupResult.crawler?.removed || 0} duplicate crawler visits 
-                                        and {cleanupResult.referral?.removed || 0} duplicate referral visits.
+                                        Removed {cleanupResult.crawler?.removed || 0} duplicate crawler visits, 
+                                        {cleanupResult.referral?.removed || 0} duplicate referral visits,
+                                        and {cleanupResult.queries?.removed || 0} duplicate queries.
                                     </p>
                                 </div>
                             )}
